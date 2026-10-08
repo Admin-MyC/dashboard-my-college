@@ -4,7 +4,9 @@ import { CreditCard, Check, Lock, ShieldCheck, AlertCircle, Building2 } from 'lu
 import { AVAILABLE_MODULES } from '../types';
 
 export const PlansBillingModule: React.FC = () => {
-  const { colleges, updateCollege } = useApp();
+  const { colleges, updateCollege, activeCollege } = useApp();
+  const primaryColor = activeCollege?.colores?.primario || '#0B2545';
+  const goldColor = activeCollege?.colores?.secundario || '#DFB743';
 
   const plans = [
     {
@@ -76,15 +78,31 @@ export const PlansBillingModule: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-display font-bold text-xl md:text-2xl text-slate-900 flex items-center gap-2">
-          <CreditCard className="w-6 h-6 text-amber-600" />
-          Planes de Suscripción y Control de Módulos por Pago
-        </h2>
-        <p className="text-xs md:text-sm text-slate-500">
-          Supervisa las tarifas contratadas por cada colegio y cómo sus módulos se habilitan o bloquean
-          de acuerdo al plan y vigencia de su pago.
-        </p>
+      <div
+        className="rounded-2xl p-5 sm:p-6 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors"
+        style={{
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
+          borderBottom: `4px solid ${goldColor}`,
+        }}
+      >
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-2xs"
+              style={{ backgroundColor: goldColor, color: primaryColor }}
+            >
+              Suscripciones y Facturación
+            </span>
+          </div>
+          <h2 className="font-display font-bold text-xl md:text-2xl text-white flex items-center gap-2">
+            <CreditCard className="w-6 h-6" style={{ color: goldColor }} />
+            Planes de Suscripción y Control de Módulos por Pago
+          </h2>
+          <p className="text-xs md:text-sm text-slate-200">
+            Supervisa las tarifas contratadas por cada colegio y cómo sus módulos se habilitan o bloquean
+            de acuerdo al plan y vigencia de su pago.
+          </p>
+        </div>
       </div>
 
       {/* Plan Cards */}
@@ -165,7 +183,9 @@ export const PlansBillingModule: React.FC = () => {
               {colleges.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50">
                   <td className="py-3 px-4 font-bold text-slate-900 flex items-center gap-2">
-                    <img src={c.escudoUrl} alt="" className="w-7 h-7 object-contain rounded" />
+                    {c.escudoUrl && (
+                      <img src={c.escudoUrl} alt="" className="w-7 h-7 object-contain rounded" />
+                    )}
                     <span>{c.nombre}</span>
                   </td>
                   <td className="py-3 px-4 font-semibold text-slate-700">{c.plan}</td>

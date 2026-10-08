@@ -64,22 +64,25 @@ export const SuperuserCredentialsModal: React.FC<Props> = ({ isOpen, onClose }) 
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
             <div>
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                Correo Electrónico (Superusuario)
+                Usuario de Acceso (Superusuario)
               </label>
               <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-300 font-mono text-sm text-slate-800">
-                <span>{superuser.correo}</span>
+                <span>{superuser.usuarioLogin || 'amorales4821'}</span>
                 <button
-                  onClick={() => handleCopy(superuser.correo, 'correo')}
+                  onClick={() => handleCopy(superuser.usuarioLogin || 'amorales4821', 'usuario')}
                   className="text-slate-500 hover:text-amber-600 p-1 rounded transition-colors"
-                  title="Copiar correo"
+                  title="Copiar usuario"
                 >
-                  {copiedField === 'correo' ? (
+                  {copiedField === 'usuario' ? (
                     <Check className="w-4 h-4 text-emerald-600" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
                 </button>
               </div>
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Correo de notificaciones y recuperación: {superuser.correo}
+              </span>
             </div>
 
             <div>

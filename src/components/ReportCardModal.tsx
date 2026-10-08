@@ -1,60 +1,180 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Student, GradeRecord } from '../types';
-import { Printer, X, Download, ShieldCheck, QrCode } from 'lucide-react';
+import {
+  Student,
+  EvaluationPeriodicity,
+  EVALUATION_PERIODICITY_CONFIG,
+} from '../types';
+import { Printer, X, Download, ShieldCheck, Calendar } from 'lucide-react';
+import {
+  generateReportCardsPdf,
+  getGradePeriodsForModalidad,
+} from '../utils/reportCardPdfGenerator';
 
 interface Props {
   student: Student | null;
   onClose: () => void;
+  initialPeriodicidad?: EvaluationPeriodicity;
 }
 
-export const ReportCardModal: React.FC<Props> = ({ student, onClose }) => {
-  const { activeCollege, grades, subjects } = useApp();
+export const ReportCardModal: React.FC<Props> = ({
+  student,
+  onClose,
+  initialPeriodicidad,
+}) => {
+  const { activeCollege, colleges, grades, setCollegeEvaluationPeriodicity, currentUser } = useApp();
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
-  if (!student || !activeCollege) return null;
+  const effectiveCollege =
+    activeCollege ||
+    (student ? colleges.find((c) => c.id === student.colegioId) || null : null);
 
-  const studentGrades = grades.filter(
-    (g) => g.colegioId === activeCollege.id && g.estudianteId === student.id
+  const [selectedPeriodicidad, setSelectedPeriodicidad] = useState<EvaluationPeriodicity>(
+    initialPeriodicidad || effectiveCollege?.periodicidadEvaluacion || 'bimestral'
   );
 
+  useEffect(() => {
+    if (initialPeriodicidad) {
+      setSelectedPeriodicidad(initialPeriodicidad);
+    } else if (effectiveCollege?.periodicidadEvaluacion) {
+      setSelectedPeriodicidad(effectiveCollege.periodicidadEvaluacion);
+    }
+  }, [initialPeriodicidad, effectiveCollege?.periodicidadEvaluacion]);
+
+  if (!student || !effectiveCollege) return null;
+
+  const meta =
+    EVALUATION_PERIODICITY_CONFIG[selectedPeriodicidad] ||
+    EVALUATION_PERIODICITY_CONFIG.bimestral;
+
+  const studentGrades = grades.filter(
+    (g) => g.colegioId === effectiveCollege.id && g.estudianteId === student.id
+  );
+
+  const rowsWithPeriods = studentGrades.map((g) => {
+    const pValues = getGradePeriodsForModalidad(g, selectedPeriodicidad);
+    const rowAvg = Number(
+      (pValues.reduce((acc, v) => acc + v, 0) / pValues.length).toFixed(1)
+    );
+    return {
+      ...g,
+      pValues,
+      rowAvg,
+    };
+  });
+
   const finalAvg =
-    studentGrades.length > 0
+    rowsWithPeriods.length > 0
       ? (
-          studentGrades.reduce((sum, g) => sum + g.promedioFinal, 0) /
-          studentGrades.length
+          rowsWithPeriods.reduce((sum, g) => sum + g.rowAvg, 0) /
+          rowsWithPeriods.length
         ).toFixed(1)
       : student.promedio.toFixed(1);
 
-  const primaryColor = activeCollege.colores.primario || '#0B2545';
-  const goldColor = activeCollege.colores.secundario || '#C59B27';
+  const primaryColor = effectiveCollege.colores.primario || '#0B2545';
+  const goldColor = effectiveCollege.colores.secundario || '#C59B27';
+
+  const handleChangePeriodicidad = (newPer: EvaluationPeriodicity) => {
+    setSelectedPeriodicidad(newPer);
+    if (currentUser.rol !== 'tutor' && currentUser.rol !== 'alumno') {
+      setCollegeEvaluationPeriodicity(effectiveCollege.id, newPer);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
   };
 
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      await generateReportCardsPdf({
+        college: effectiveCollege,
+        students: [student],
+        grades,
+        periodicidad: selectedPeriodicidad,
+        filename: `Boleta_${meta.label}_${student.apellidos}_${student.nombre}_${student.matricula}.pdf`.replace(
+          /\s+/g,
+          '_'
+        ),
+      });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-6 overflow-hidden border border-slate-300">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-6 overflow-hidden border border-slate-300 cursor-default"
+      >
         {/* Modal Controls (Hidden in print) */}
-        <div className="p-4 bg-slate-800 text-white flex items-center justify-between no-print">
-          <div className="flex items-center gap-2">
+        <div className="p-4 bg-slate-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-amber-300">
-              Vista Previa de Boleta Oficial
+              {meta.boletaLabel}
             </span>
-            <span className="text-xs text-slate-400">· {activeCollege.nombre}</span>
+            <span className="text-xs text-slate-400">· {effectiveCollege.nombre}</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Selector de Modalidad de Boleta (Mensual, Bimestral, Trimestral, Cuatrimestral, Semestral) */}
+            <div className="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-700">
+              <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="text-[10px] font-bold text-slate-300 uppercase">
+                Obtener Boleta:
+              </span>
+              <select
+                value={selectedPeriodicidad}
+                onChange={(e) =>
+                  handleChangePeriodicidad(e.target.value as EvaluationPeriodicity)
+                }
+                className="bg-transparent text-amber-300 font-bold text-xs focus:outline-none cursor-pointer"
+              >
+                {(
+                  [
+                    'mensual',
+                    'bimestral',
+                    'trimestral',
+                    'cuatrimestral',
+                    'semestral',
+                  ] as EvaluationPeriodicity[]
+                ).map((per) => (
+                  <option key={per} value={per} className="bg-slate-900 text-white">
+                    {EVALUATION_PERIODICITY_CONFIG[per].label} (
+                    {EVALUATION_PERIODICITY_CONFIG[per].periodCount} periodos)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors shadow-xs cursor-pointer disabled:opacity-60"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>
+                {isDownloadingPdf
+                  ? 'Generando PDF...'
+                  : `Descargar Boleta ${meta.label} (.PDF)`}
+              </span>
+            </button>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 transition-colors shadow-xs cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Imprimir / Guardar PDF</span>
+              <span>Imprimir</span>
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer"
+              title="Cerrar vista previa"
             >
               <X className="w-4 h-4" />
             </button>
@@ -73,28 +193,30 @@ export const ReportCardModal: React.FC<Props> = ({ student, onClose }) => {
             className="flex items-center justify-between pb-6 border-b-2 gap-4"
             style={{ borderColor: primaryColor }}
           >
-            {/* Shield uploaded by the college */}
+            {/* Shield uploaded by the college (Only shown if uploaded) */}
             <div className="flex items-center gap-4">
-              <img
-                src={activeCollege.escudoUrl}
-                alt={activeCollege.nombre}
-                className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-lg p-1 bg-white border border-slate-200 shadow-2xs"
-              />
+              {effectiveCollege.escudoUrl && (
+                <img
+                  src={effectiveCollege.escudoUrl}
+                  alt={effectiveCollege.nombre}
+                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-lg p-1 bg-white border border-slate-200 shadow-2xs"
+                />
+              )}
               <div>
                 <div
                   className="font-display font-extrabold text-lg sm:text-xl uppercase tracking-wide leading-tight"
                   style={{ color: primaryColor }}
                 >
-                  {activeCollege.nombre}
+                  {effectiveCollege.nombre}
                 </div>
                 <div className="text-xs text-slate-600 font-medium mt-0.5">
-                  Clave C.C.T.: <span className="font-mono font-bold">{activeCollege.codigoCCT}</span> · Incorporado al Sistema Educativo
+                  Clave C.C.T.: <span className="font-mono font-bold">{effectiveCollege.codigoCCT}</span> · Incorporado al Sistema Educativo
                 </div>
                 <div className="text-xs text-slate-500 italic mt-0.5">
-                  "{activeCollege.lema}"
+                  "{effectiveCollege.lema}"
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1">
-                  {activeCollege.direccion} · Tel. {activeCollege.telefono}
+                  {effectiveCollege.direccion} · Tel. {effectiveCollege.telefono}
                 </div>
               </div>
             </div>
@@ -105,10 +227,10 @@ export const ReportCardModal: React.FC<Props> = ({ student, onClose }) => {
                 className="px-3 py-1 rounded text-xs font-extrabold uppercase tracking-wider inline-block text-white"
                 style={{ backgroundColor: primaryColor }}
               >
-                Boleta de Evaluación
+                {meta.boletaLabel}
               </div>
               <div className="text-xs font-semibold text-slate-700 mt-1">
-                Ciclo Escolar 2026 - 2027
+                Modalidad {meta.label} · Ciclo 2026 - 2027
               </div>
               <div className="text-[11px] text-slate-500 font-mono">
                 Folio: BE-{student.matricula}
@@ -153,28 +275,30 @@ export const ReportCardModal: React.FC<Props> = ({ student, onClose }) => {
 
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                C.U.R.P.
+                Modalidad de Evaluación
               </span>
-              <span className="font-mono text-slate-700">
-                {student.curp || 'HERA080415HDFRRL01'}
+              <span className="font-bold text-slate-800 uppercase">
+                {meta.label} ({meta.periodCount} periodos)
               </span>
             </div>
           </div>
 
           {/* Grades Table */}
-          <div className="overflow-hidden border border-slate-300 rounded-lg">
+          <div className="overflow-x-auto border border-slate-300 rounded-lg">
             <table className="w-full text-xs text-left">
               <thead>
                 <tr
-                  className="text-white text-xs font-bold uppercase tracking-wider"
+                  className="text-white text-[11px] font-bold uppercase tracking-wider"
                   style={{ backgroundColor: primaryColor }}
                 >
                   <th className="py-2.5 px-3">Asignatura / Malla Curricular</th>
-                  <th className="py-2.5 px-2 text-center w-20">1° Bim</th>
-                  <th className="py-2.5 px-2 text-center w-20">2° Bim</th>
-                  <th className="py-2.5 px-2 text-center w-20">3° Bim</th>
+                  {meta.shortLabels.map((lbl, idx) => (
+                    <th key={idx} className="py-2.5 px-1.5 text-center">
+                      {lbl}
+                    </th>
+                  ))}
                   <th
-                    className="py-2.5 px-3 text-center w-24"
+                    className="py-2.5 px-3 text-center"
                     style={{ backgroundColor: goldColor, color: '#0B2545' }}
                   >
                     Promedio
@@ -183,21 +307,20 @@ export const ReportCardModal: React.FC<Props> = ({ student, onClose }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {studentGrades.length > 0 ? (
-                  studentGrades.map((g) => (
+                {rowsWithPeriods.length > 0 ? (
+                  rowsWithPeriods.map((g) => (
                     <tr key={g.id} className="hover:bg-slate-50">
                       <td className="py-2 px-3 font-semibold text-slate-800">
                         {g.materiaNombre}
                       </td>
-                      <td className="py-2 px-2 text-center font-mono tabular-nums">
-                        {g.periodo1.toFixed(1)}
-                      </td>
-                      <td className="py-2 px-2 text-center font-mono tabular-nums">
-                        {g.periodo2.toFixed(1)}
-                      </td>
-                      <td className="py-2 px-2 text-center font-mono tabular-nums">
-                        {g.periodo3.toFixed(1)}
-                      </td>
+                      {g.pValues.map((val, pIdx) => (
+                        <td
+                          key={pIdx}
+                          className="py-2 px-1.5 text-center font-mono tabular-nums"
+                        >
+                          {val.toFixed(1)}
+                        </td>
+                      ))}
                       <td
                         className="py-2 px-3 text-center font-mono font-bold tabular-nums"
                         style={{
@@ -205,7 +328,7 @@ export const ReportCardModal: React.FC<Props> = ({ student, onClose }) => {
                           color: primaryColor,
                         }}
                       >
-                        {g.promedioFinal.toFixed(1)}
+                        {g.rowAvg.toFixed(1)}
                       </td>
                       <td className="py-2 px-3 text-slate-500 italic text-[11px]">
                         {g.observaciones || 'Desempeño adecuado'}
@@ -214,7 +337,10 @@ export const ReportCardModal: React.FC<Props> = ({ student, onClose }) => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-6 text-center text-slate-400 italic">
+                    <td
+                      colSpan={meta.periodCount + 3}
+                      className="py-6 text-center text-slate-400 italic"
+                    >
                       No hay registros de calificaciones para este alumno en el periodo actual.
                     </td>
                   </tr>
@@ -223,9 +349,12 @@ export const ReportCardModal: React.FC<Props> = ({ student, onClose }) => {
               <tfoot>
                 <tr className="bg-slate-100 font-bold border-t-2 border-slate-300">
                   <td className="py-2.5 px-3 text-right uppercase text-slate-700">
-                    Promedio General Acumulado:
+                    Promedio General ({meta.label}):
                   </td>
-                  <td colSpan={3} className="text-center font-mono text-slate-500">
+                  <td
+                    colSpan={meta.periodCount}
+                    className="text-center font-mono text-slate-500"
+                  >
                     Aprobatorio
                   </td>
                   <td
@@ -251,11 +380,11 @@ export const ReportCardModal: React.FC<Props> = ({ student, onClose }) => {
             <div>
               <div className="h-14 flex items-end justify-center pb-1">
                 <span className="font-serif italic text-slate-400 text-sm">
-                  {activeCollege.director}
+                  {effectiveCollege.director}
                 </span>
               </div>
               <div className="border-t border-slate-400 pt-1 font-semibold text-slate-800">
-                {activeCollege.director}
+                {effectiveCollege.director}
               </div>
               <div className="text-[10px] text-slate-400">Director(a) del Plantel</div>
             </div>

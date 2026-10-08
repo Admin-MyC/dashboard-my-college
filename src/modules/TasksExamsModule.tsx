@@ -19,6 +19,7 @@ export const TasksExamsModule: React.FC = () => {
 
   if (!activeCollege) return null;
   const primaryColor = activeCollege.colores.primario || '#0B2545';
+  const goldColor = activeCollege.colores.secundario || '#C59B27';
   const collegeItems = tasksExams.filter((t) => t.colegioId === activeCollege.id);
 
   const filtered = collegeItems.filter(
@@ -49,21 +50,38 @@ export const TasksExamsModule: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-display font-bold text-xl md:text-2xl text-slate-900 flex items-center gap-2">
-            <ClipboardList className="w-6 h-6" style={{ color: primaryColor }} />
+      <div
+        className="rounded-2xl p-5 sm:p-6 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors"
+        style={{
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
+          borderBottom: `4px solid ${goldColor}`,
+        }}
+      >
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-2xs"
+              style={{ backgroundColor: goldColor, color: primaryColor }}
+            >
+              Actividades y Evaluaciones
+            </span>
+          </div>
+          <h2 className="font-display font-bold text-xl md:text-2xl text-white flex items-center gap-2">
+            <ClipboardList className="w-6 h-6" style={{ color: goldColor }} />
             Tareas, Evaluaciones y Exámenes
           </h2>
-          <p className="text-xs md:text-sm text-slate-500">
+          <p className="text-xs md:text-sm text-slate-200">
             {activeCollege.nombre} · Programación de entregas, rúbricas de evaluación y calendario de exámenes
           </p>
         </div>
+      </div>
 
+      {/* Action Buttons Bar (Below Header) */}
+      <div className="flex flex-wrap items-center justify-end gap-2.5">
         <button
           onClick={() => setIsAddOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm text-white shadow-sm transition-all active:scale-98 self-start sm:self-auto"
-          style={{ backgroundColor: primaryColor }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-sm transition-all active:scale-98 cursor-pointer"
+          style={{ backgroundColor: goldColor, color: primaryColor }}
         >
           <Plus className="w-4 h-4 stroke-[3]" />
           <span>Crear Tarea o Examen</span>

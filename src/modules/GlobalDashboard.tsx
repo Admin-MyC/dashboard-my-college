@@ -19,6 +19,7 @@ import {
   Mail,
   Phone,
   Shield,
+  Percent,
 } from 'lucide-react';
 import { College } from '../types';
 
@@ -81,27 +82,10 @@ export const GlobalDashboard: React.FC<Props> = ({
             <h2 className="font-display font-extrabold text-2xl lg:text-3xl tracking-tight text-white mb-2">
               Administración Centralizada de Instituciones
             </h2>
-            <p className="text-sm text-slate-200 leading-relaxed mb-6">
+            <p className="text-sm text-slate-200 leading-relaxed">
               Gestiona planteles registrados, supervisa el cumplimiento de pagos, activa o restringe
               módulos institucionales y personaliza la identidad de cada colegio con su escudo y colores propios.
             </p>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={onOpenAddCollegeModal}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#DFB743] to-[#C59B27] hover:from-[#E8C252] hover:to-[#B68C1C] text-[#0B2545] font-bold text-xs md:text-sm shadow-md transition-all active:scale-98 cursor-pointer"
-              >
-                <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Registrar Nuevo Colegio</span>
-              </button>
-              <button
-                onClick={() => onNavigateTab("colegios")}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs md:text-sm backdrop-blur-xs border border-white/20 transition-all cursor-pointer"
-              >
-                <span>Ver Módulo Colegios</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
           </div>
 
           {/* Official Crest Showcase Card (Right Side of Banner) */}
@@ -119,6 +103,38 @@ export const GlobalDashboard: React.FC<Props> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Action Buttons Bar (Below Header) */}
+      <div className="flex flex-wrap items-center justify-end gap-2.5">
+        <button
+          onClick={() => onNavigateTab('colegios')}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs md:text-sm border border-slate-200 shadow-2xs transition-all cursor-pointer"
+        >
+          <span>Ver Módulo Colegios</span>
+          <ArrowRight className="w-4 h-4 text-[#0B2545]" />
+        </button>
+        <button
+          onClick={() => onNavigateTab('comisiones_plataforma')}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs md:text-sm border border-slate-200 shadow-2xs transition-all cursor-pointer"
+        >
+          <Percent className="w-4 h-4 text-amber-600" />
+          <span>Comisiones de Plataforma (%)</span>
+        </button>
+        <button
+          onClick={() => onNavigateTab('bitacora_logs')}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs md:text-sm border border-slate-200 shadow-2xs transition-all cursor-pointer"
+        >
+          <ShieldCheck className="w-4 h-4 text-indigo-600" />
+          <span>Bitácora de Actividades (TXT)</span>
+        </button>
+        <button
+          onClick={onOpenAddCollegeModal}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#DFB743] to-[#C59B27] hover:from-[#E8C252] hover:to-[#B68C1C] text-[#0B2545] font-bold text-xs md:text-sm shadow-sm transition-all active:scale-98 cursor-pointer"
+        >
+          <Plus className="w-4 h-4 stroke-[3]" />
+          <span>Registrar Nuevo Colegio</span>
+        </button>
       </div>
 
       {/* 2. DEDICATED DROPDOWN LIST OF REGISTERED COLLEGES (Requested by user) */}
@@ -196,11 +212,13 @@ export const GlobalDashboard: React.FC<Props> = ({
           {currentSelectedCollege && (
             <div className="lg:col-span-6 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-200 p-4 shadow-2xs">
               <div className="flex items-start gap-4">
-                <img
-                  src={currentSelectedCollege.escudoUrl}
-                  alt={currentSelectedCollege.nombre}
-                  className="w-16 h-16 object-contain rounded-xl bg-white border border-slate-200 p-1 shadow-xs shrink-0"
-                />
+                {currentSelectedCollege.escudoUrl && (
+                  <img
+                    src={currentSelectedCollege.escudoUrl}
+                    alt={currentSelectedCollege.nombre}
+                    className="w-16 h-16 object-contain rounded-xl bg-white border border-slate-200 p-1 shadow-xs shrink-0"
+                  />
+                )}
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -430,11 +448,13 @@ export const GlobalDashboard: React.FC<Props> = ({
                     {/* Escudo & Name */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={col.escudoUrl}
-                          alt={col.nombre}
-                          className="w-10 h-10 object-contain rounded-md border border-slate-200 bg-white p-0.5 shadow-2xs shrink-0"
-                        />
+                        {col.escudoUrl && (
+                          <img
+                            src={col.escudoUrl}
+                            alt={col.nombre}
+                            className="w-10 h-10 object-contain rounded-md border border-slate-200 bg-white p-0.5 shadow-2xs shrink-0"
+                          />
+                        )}
                         <div>
                           <div className="font-semibold text-slate-900 group-hover:text-blue-700 transition-colors">
                             {col.nombre}

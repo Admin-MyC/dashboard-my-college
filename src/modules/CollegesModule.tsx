@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { AVAILABLE_MODULES, College, CollegeModuleId, PaymentStatus, PlanType } from '../types';
 import { createShieldSvg } from '../utils/shieldHelper';
+import { compressImageFile } from '../utils/imageCompressor';
+import { generateTutorUsername, generateRandomPassword } from '../utils/preenrollmentHelper';
 
 interface Props {
   onNavigateTab: (tab: string) => void;
@@ -35,6 +37,7 @@ export const CollegesModule: React.FC<Props> = ({
 }) => {
   const {
     colleges,
+    activeCollege,
     users,
     addCollege,
     updateCollege,
@@ -53,6 +56,13 @@ export const CollegesModule: React.FC<Props> = ({
   const [editingCollege, setEditingCollege] = useState<College | null>(null);
   const [modulesModalCollege, setModulesModalCollege] = useState<College | null>(null);
   const [brandingModalCollege, setBrandingModalCollege] = useState<College | null>(null);
+  const [createdCollegeCredentials, setCreatedCollegeCredentials] = useState<{
+    collegeName: string;
+    adminName: string;
+    adminEmail: string;
+    username: string;
+    password: string;
+  } | null>(null);
 
   // Add College Form State
   const [newColName, setNewColName] = useState('');
@@ -72,8 +82,15 @@ export const CollegesModule: React.FC<Props> = ({
   // Mandatory Administrator Details for New College
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
-  const [adminPass, setAdminPass] = useState('admin123');
+  const [adminRandom4Digits, setAdminRandom4Digits] = useState(() =>
+    String(Math.floor(1000 + Math.random() * 9000))
+  );
+  const [adminPass, setAdminPass] = useState(() => generateRandomPassword());
   const [adminPhone, setAdminPhone] = useState('');
+
+  const previewAdminUsername = adminName.trim()
+    ? generateTutorUsername(adminName, adminRandom4Digits)
+    : '';
 
   // Branding Editor Temp State
   const [tempPrimary, setTempPrimary] = useState('#0B2545');
@@ -91,23 +108,23 @@ export const CollegesModule: React.FC<Props> = ({
   });
 
   // Handle Shield File Upload
-  const handleFileUpload = (
+  const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     target: 'new' | 'branding'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
+    try {
+      const dataUrl = await compressImageFile(file, 512, 512, 0.9);
       if (target === 'new') {
         setNewColShield(dataUrl);
       } else {
         setTempShieldUrl(dataUrl);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error al comprimir escudo:', err);
+    }
   };
 
   const handleOpenBranding = (college: College) => {
@@ -117,10 +134,9 @@ export const CollegesModule: React.FC<Props> = ({
     setTempShieldUrl(college.escudoUrl);
   };
 
-  const handleSaveBranding = () => {
+  const handleSaveBranding = async () => {
     if (!brandingModalCollege) return;
-    updateCollegeBranding(brandingModalCollege.id, tempShieldUrl, tempPrimary, tempGold);
-    updateCollege(brandingModalCollege.id, {
+    await updateCollege(brandingModalCollege.id, {
       colores: {
         primario: tempPrimary,
         secundario: tempGold,
@@ -128,6 +144,7 @@ export const CollegesModule: React.FC<Props> = ({
       },
       escudoUrl: tempShieldUrl,
     });
+    await updateCollegeBranding(brandingModalCollege.id, tempShieldUrl, tempPrimary, tempGold);
     setBrandingModalCollege(null);
   };
 
@@ -138,62 +155,94 @@ export const CollegesModule: React.FC<Props> = ({
       return;
     }
 
-    const { college } = addCollege(
+    const { college, adminUser } = addCollege(
       {
-        nombre: newColName,
-        codigoCCT: newColCCT || `CCT-09PES${Math.floor(1000 + Math.random() * 9000)}B`,
-        lema: newColLema || 'Virtud y Ciencia',
+        nombre: newColName.trim(),
+        codigoCCT: newColCCT.trim() || `CCT-09PES${Math.floor(1000 + Math.random() * 9000)}B`,
+        lema: newColLema.trim(),
         nivel: newColNivel,
         plan: newColPlan,
         estadoPago: newColPayment,
         montoMensual: newColMonto,
-        telefono: newColPhone || '+52 (55) 1234-5678',
-        correo: newColEmail || 'contacto@colegio.edu.mx',
-        direccion: newColAddress || 'Av. Principal #100',
+        telefono: newColPhone.trim(),
+        correo: newColEmail.trim() || adminEmail.trim(),
+        direccion: newColAddress.trim(),
         colores: {
           primario: newColPrimary,
           secundario: newColGold,
           textoCabecera: '#FFFFFF',
         },
-        escudoUrl: newColShield || createShieldSvg(newColPrimary, newColGold, newColName.slice(0, 3).toUpperCase(), 'book'),
+        escudoUrl: newColShield ? newColShield.trim() : '',
       },
       {
-        nombre: adminName,
-        correo: adminEmail,
-        password: adminPass || 'admin123',
-        telefono: adminPhone,
+        nombre: adminName.trim(),
+        correo: adminEmail.trim(),
+        usuarioLogin: generateTutorUsername(adminName.trim(), adminRandom4Digits),
+        password: adminPass || generateRandomPassword(),
+        telefono: adminPhone.trim(),
       }
     );
+
+    setCreatedCollegeCredentials({
+      collegeName: college.nombre,
+      adminName: adminUser.nombre,
+      adminEmail: adminUser.correo,
+      username: adminUser.usuarioLogin || '',
+      password: adminUser.password || adminPass || '',
+    });
 
     // Reset form
     setNewColName('');
     setNewColCCT('');
     setNewColLema('');
+    setNewColShield('');
     setAdminName('');
     setAdminEmail('');
-    setAdminPass('admin123');
+    setAdminRandom4Digits(String(Math.floor(1000 + Math.random() * 9000)));
+    setAdminPass(generateRandomPassword());
     setAdminPhone('');
     setIsAddModalOpen(false);
   };
 
+  const primaryColor = activeCollege?.colores?.primario || '#0B2545';
+  const goldColor = activeCollege?.colores?.secundario || '#DFB743';
+
   return (
     <div className="space-y-6">
-      {/* Top Bar / Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-display font-bold text-xl md:text-2xl text-slate-900 flex items-center gap-2">
-            <Building2 className="w-6 h-6 text-amber-600" />
+      {/* Top Bar / Header Banner */}
+      <div
+        className="rounded-2xl p-5 sm:p-6 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors"
+        style={{
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
+          borderBottom: `4px solid ${goldColor}`,
+        }}
+      >
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-2xs"
+              style={{ backgroundColor: goldColor, color: primaryColor }}
+            >
+              Directorio de Planteles
+            </span>
+          </div>
+          <h2 className="font-display font-bold text-xl md:text-2xl text-white flex items-center gap-2">
+            <Building2 className="w-6 h-6" style={{ color: goldColor }} />
             Módulo de Colegios e Instituciones
           </h2>
-          <p className="text-xs md:text-sm text-slate-500">
+          <p className="text-xs md:text-sm text-slate-200">
             Registra y administra instituciones escolares, habilita o restringe módulos según el pago
             y personaliza el escudo y colores de cada plantel.
           </p>
         </div>
+      </div>
 
+      {/* Action Buttons Bar (Below Header) */}
+      <div className="flex flex-wrap items-center justify-end gap-2.5">
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0B2545] hover:bg-[#123B6B] text-amber-400 font-semibold text-xs md:text-sm shadow-sm transition-all active:scale-98 self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-sm transition-all active:scale-98 cursor-pointer"
+          style={{ backgroundColor: goldColor, color: primaryColor }}
         >
           <Plus className="w-4 h-4 stroke-[3]" />
           <span>Agregar Nuevo Colegio</span>
@@ -262,21 +311,23 @@ export const CollegesModule: React.FC<Props> = ({
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3.5">
-                    {/* College Shield */}
-                    <div className="relative group">
-                      <img
-                        src={col.escudoUrl}
-                        alt={col.nombre}
-                        className="w-14 h-14 object-contain rounded-xl border border-slate-200 bg-white p-1 shadow-xs"
-                      />
-                      <button
-                        onClick={() => handleOpenBranding(col)}
-                        className="absolute inset-0 bg-slate-900/60 text-white opacity-0 group-hover:opacity-100 rounded-xl flex items-center justify-center transition-opacity"
-                        title="Personalizar Escudo y Colores"
-                      >
-                        <Palette className="w-5 h-5 text-amber-300" />
-                      </button>
-                    </div>
+                    {/* College Shield (Only shown if uploaded) */}
+                    {col.escudoUrl && (
+                      <div className="relative group">
+                        <img
+                          src={col.escudoUrl}
+                          alt={col.nombre}
+                          className="w-14 h-14 object-contain rounded-xl border border-slate-200 bg-white p-1 shadow-xs"
+                        />
+                        <button
+                          onClick={() => handleOpenBranding(col)}
+                          className="absolute inset-0 bg-slate-900/60 text-white opacity-0 group-hover:opacity-100 rounded-xl flex items-center justify-center transition-opacity"
+                          title="Personalizar Escudo y Colores"
+                        >
+                          <Palette className="w-5 h-5 text-amber-300" />
+                        </button>
+                      </div>
+                    )}
 
                     <div>
                       <h3 className="font-display font-bold text-base text-slate-900">
@@ -287,9 +338,11 @@ export const CollegesModule: React.FC<Props> = ({
                         <span>·</span>
                         <span>{col.nivel}</span>
                       </div>
-                      <p className="text-[11px] text-slate-400 italic mt-0.5">
-                        "{col.lema}"
-                      </p>
+                      {col.lema && (
+                        <p className="text-[11px] text-slate-400 italic mt-0.5">
+                          "{col.lema}"
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -351,11 +404,23 @@ export const CollegesModule: React.FC<Props> = ({
                     <span className="font-medium text-slate-800 text-xs">
                       {admin ? admin.nombre : col.director}
                     </span>
-                    <span className="text-[11px] text-slate-500 font-mono block">
+                    {admin?.usuarioLogin && (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[10px] font-bold uppercase text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-mono">
+                          Usuario: {admin.usuarioLogin}
+                        </span>
+                        {admin.password && (
+                          <span className="text-[10px] font-mono text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                            Pass: {admin.password}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <span className="text-[11px] text-slate-500 font-mono block mt-0.5">
                       {admin ? admin.correo : col.correo}
                     </span>
                   </div>
-                  <UserCheck className="w-5 h-5 text-blue-600" />
+                  <UserCheck className="w-5 h-5 text-blue-600 shrink-0" />
                 </div>
 
                 {/* Modules Summary & Control Button */}
@@ -458,11 +523,13 @@ export const CollegesModule: React.FC<Props> = ({
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
             <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-3">
-                <img
-                  src={modulesModalCollege.escudoUrl}
-                  alt={modulesModalCollege.nombre}
-                  className="w-10 h-10 object-contain rounded-lg border border-slate-200 bg-white p-0.5"
-                />
+                {modulesModalCollege.escudoUrl && (
+                  <img
+                    src={modulesModalCollege.escudoUrl}
+                    alt={modulesModalCollege.nombre}
+                    className="w-10 h-10 object-contain rounded-lg border border-slate-200 bg-white p-0.5"
+                  />
+                )}
                 <div>
                   <h3 className="font-display font-bold text-base text-slate-900">
                     Administrar Módulos: {modulesModalCollege.nombre}
@@ -543,7 +610,7 @@ export const CollegesModule: React.FC<Props> = ({
             {/* Modules List with Toggle Switches */}
             <div className="p-4 overflow-y-auto divide-y divide-slate-100 space-y-2">
               {AVAILABLE_MODULES.map((mod) => {
-                const isEnabled = modulesModalCollege.modulosHabilitados.includes(mod.id);
+                const isEnabled = (modulesModalCollege.modulosHabilitados || []).includes(mod.id);
 
                 return (
                   <div
@@ -633,11 +700,13 @@ export const CollegesModule: React.FC<Props> = ({
                   Escudo Oficial de la Institución
                 </label>
                 <div className="flex items-center gap-4">
-                  <img
-                    src={tempShieldUrl || brandingModalCollege.escudoUrl}
-                    alt="Escudo"
-                    className="w-20 h-20 object-contain rounded-xl border border-slate-300 p-1.5 bg-white shadow-xs"
-                  />
+                  {(tempShieldUrl || brandingModalCollege.escudoUrl) && (
+                    <img
+                      src={tempShieldUrl || brandingModalCollege.escudoUrl}
+                      alt="Escudo"
+                      className="w-20 h-20 object-contain rounded-xl border border-slate-300 p-1.5 bg-white shadow-xs"
+                    />
+                  )}
                   <div className="space-y-2">
                     <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold cursor-pointer border border-slate-300 transition-colors">
                       <Upload className="w-4 h-4 text-slate-600" />
@@ -719,11 +788,13 @@ export const CollegesModule: React.FC<Props> = ({
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <img
-                      src={tempShieldUrl || brandingModalCollege.escudoUrl}
-                      alt="Preview"
-                      className="w-10 h-10 object-contain rounded bg-white p-0.5 border"
-                    />
+                    {(tempShieldUrl || brandingModalCollege.escudoUrl) && (
+                      <img
+                        src={tempShieldUrl || brandingModalCollege.escudoUrl}
+                        alt="Preview"
+                        className="w-10 h-10 object-contain rounded bg-white p-0.5 border"
+                      />
+                    )}
                     <div>
                       <h4
                         className="font-bold text-sm"
@@ -825,7 +896,7 @@ export const CollegesModule: React.FC<Props> = ({
 
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1">
-                      Nivel Educativo
+                      Nivel Educativo / Multinivel
                     </label>
                     <select
                       value={newColNivel}
@@ -836,7 +907,7 @@ export const CollegesModule: React.FC<Props> = ({
                       <option value="Primaria">Primaria</option>
                       <option value="Secundaria">Secundaria</option>
                       <option value="Preparatoria">Preparatoria</option>
-                      <option value="Colegio Integral">Colegio Integral (Varios niveles)</option>
+                      <option value="Colegio Integral">Multinivel / Colegio Integral (Preescolar, Primaria, Secundaria y Preparatoria)</option>
                       <option value="Universidad">Universidad</option>
                     </select>
                   </div>
@@ -957,7 +1028,7 @@ export const CollegesModule: React.FC<Props> = ({
                         />
                       </label>
                       <span className="text-[11px] text-slate-400">
-                        (Si no se sube, se generará un blasón heráldico automático)
+                        (Opcional: si no se sube un escudo, no se mostrará imagen)
                       </span>
                     </div>
                   </div>
@@ -972,13 +1043,12 @@ export const CollegesModule: React.FC<Props> = ({
                     3. Administrador del Colegio (Requerido para Acceso)
                   </h4>
                   <span className="text-[10px] font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                    Obligatorio
+                    Credenciales enviadas por correo
                   </span>
                 </div>
 
                 <p className="text-xs text-amber-800/80">
-                  Tal como lo requiere el sistema, cada nuevo colegio debe contar con un Administrador
-                  designado para acceder y gestionar el plantel.
+                  Al registrar el colegio se generará automáticamente un <strong>usuario compuesto por la primera inicial del nombre + apellido + 4 dígitos aleatorios</strong> y se enviarán sus credenciales de acceso por correo electrónico.
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1012,15 +1082,39 @@ export const CollegesModule: React.FC<Props> = ({
 
                   <div>
                     <label className="text-xs font-semibold text-slate-800 block mb-1">
-                      Contraseña Temporal
+                      Usuario Generado (4 dígitos fijos en BD)
                     </label>
                     <input
                       type="text"
-                      placeholder="admin123"
-                      value={adminPass}
-                      onChange={(e) => setAdminPass(e.target.value)}
-                      className="w-full px-3 py-2 text-xs md:text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                      readOnly
+                      value={previewAdminUsername}
+                      placeholder="Se genera al escribir el nombre"
+                      className="w-full px-3 py-2 text-xs md:text-sm bg-slate-100 border border-amber-300 rounded-lg font-mono font-bold text-slate-900 cursor-not-allowed"
+                      title="Los 4 dígitos aleatorios se generan una sola vez y quedan guardados en la base de datos"
                     />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-800 block mb-1">
+                      Contraseña Aleatoria (8 caracteres)
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        maxLength={8}
+                        value={adminPass}
+                        onChange={(e) => setAdminPass(e.target.value)}
+                        className="w-full px-3 py-2 text-xs md:text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono font-bold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAdminPass(generateRandomPassword())}
+                        className="p-2 rounded-lg bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 cursor-pointer shrink-0"
+                        title="Generar nueva contraseña de 8 caracteres"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div>
@@ -1102,6 +1196,26 @@ export const CollegesModule: React.FC<Props> = ({
                 />
               </div>
 
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Nivel Educativo / Multinivel
+                </label>
+                <select
+                  value={editingCollege.nivel}
+                  onChange={(e) =>
+                    setEditingCollege({ ...editingCollege, nivel: e.target.value as any })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="Preescolar">Preescolar</option>
+                  <option value="Primaria">Primaria</option>
+                  <option value="Secundaria">Secundaria</option>
+                  <option value="Preparatoria">Preparatoria</option>
+                  <option value="Colegio Integral">Multinivel / Colegio Integral (Todos los niveles)</option>
+                  <option value="Universidad">Universidad</option>
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">Plan</label>
@@ -1171,6 +1285,93 @@ export const CollegesModule: React.FC<Props> = ({
                 className="px-4 py-2 text-xs font-semibold text-white bg-[#0B2545] rounded-lg hover:bg-[#123B6B]"
               >
                 Guardar Cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 5: CREDENCIALES GENERADAS Y ENVIADAS POR CORREO          */}
+      {/* ============================================================ */}
+      {createdCollegeCredentials && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+            <div className="p-5 bg-[#0B2545] text-white flex items-center justify-between border-b-4 border-[#DFB743]">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 className="w-5 h-5 text-[#DFB743]" />
+                <div>
+                  <h3 className="font-display font-bold text-base">
+                    ¡Colegio Registrado con Éxito!
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    Credenciales generadas y enviadas por correo
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCreatedCollegeCredentials(null)}
+                className="text-slate-300 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs md:text-sm">
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  Se enviaron las credenciales de acceso al correo{' '}
+                  <strong className="font-mono">{createdCollegeCredentials.adminEmail}</strong> para la institución{' '}
+                  <strong>{createdCollegeCredentials.collegeName}</strong>.
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Administrador Asignado
+                  </span>
+                  <span className="font-bold text-slate-900 text-sm">
+                    {createdCollegeCredentials.adminName}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Usuario Generado (Inicial Nombre + Apellido + 4 Dígitos)
+                  </span>
+                  <span className="font-mono font-black text-base text-[#0B2545] bg-amber-100/80 px-2.5 py-1 rounded-lg border border-amber-300 inline-block mt-0.5">
+                    {createdCollegeCredentials.username}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Correo Electrónico
+                  </span>
+                  <span className="font-mono font-semibold text-slate-700">
+                    {createdCollegeCredentials.adminEmail}
+                  </span>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Contraseña de Acceso
+                  </span>
+                  <span className="font-mono font-bold text-slate-900 bg-white px-2.5 py-1 rounded border border-slate-200 inline-block mt-0.5">
+                    {createdCollegeCredentials.password}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
+              <button
+                onClick={() => setCreatedCollegeCredentials(null)}
+                className="px-5 py-2 text-xs font-bold text-white bg-[#0B2545] rounded-xl hover:bg-[#123B6B] cursor-pointer"
+              >
+                Entendido
               </button>
             </div>
           </div>

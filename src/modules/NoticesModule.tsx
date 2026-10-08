@@ -1,35 +1,76 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Bell, Plus, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { Notice } from '../types';
+import { Notice, UserRole } from '../types';
 
 export const NoticesModule: React.FC = () => {
-  const { activeCollege, notices, addNotice } = useApp();
+  const { activeCollege, colleges, currentUser, notices, addNotice, sendEmailNotification } = useApp();
   const [isAddOpen, setIsAddOpen] = useState(false);
+
+  const isTeacher = currentUser?.rol === 'docente';
+  const canCreateNotice = !['tutor', 'alumno'].includes(currentUser?.rol || '');
 
   const [titulo, setTitulo] = useState('');
   const [contenido, setContenido] = useState('');
   const [prioridad, setPrioridad] = useState<Notice['prioridad']>('Normal');
-  const [destinatarios, setDestinatarios] = useState<Notice['destinatarios']>('Toda la Comunidad');
+  const [destinatarios, setDestinatarios] = useState<Notice['destinatarios']>(
+    isTeacher ? 'Padres de Familia' : 'Toda la Comunidad'
+  );
 
-  if (!activeCollege) return null;
-  const primaryColor = activeCollege.colores.primario || '#0B2545';
+  React.useEffect(() => {
+    if (isTeacher && destinatarios !== 'Padres de Familia' && destinatarios !== 'Estudiantes') {
+      setDestinatarios('Padres de Familia');
+    }
+  }, [isTeacher, destinatarios]);
+
+  const effectiveCollege =
+    activeCollege ||
+    (currentUser?.colegioId ? colleges.find((c) => c.id === currentUser.colegioId) || null : null);
+
+  if (!effectiveCollege) return null;
+  const primaryColor = effectiveCollege.colores.primario || '#0B2545';
+  const goldColor = effectiveCollege.colores.secundario || '#C59B27';
   const collegeNotices = notices.filter(
-    (n) => n.colegioId === activeCollege.id || n.colegioId === 'todos'
+    (n) => n.colegioId === effectiveCollege.id
   );
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!titulo.trim() || !contenido.trim()) return;
 
+    const finalDestinatarios: Notice['destinatarios'] =
+      isTeacher && destinatarios !== 'Padres de Familia' && destinatarios !== 'Estudiantes'
+        ? 'Padres de Familia'
+        : destinatarios;
+
     addNotice({
-      colegioId: activeCollege.id,
+      colegioId: effectiveCollege.id,
       titulo,
       contenido,
       prioridad,
-      destinatarios,
-      autor: activeCollege.director || 'Dirección General',
+      destinatarios: finalDestinatarios,
+      autor: isTeacher
+        ? currentUser?.nombre || 'Docente del Plantel'
+        : effectiveCollege.director || 'Dirección General',
       fecha: new Date().toISOString().split('T')[0],
+    });
+
+    const rolesMap: Record<string, UserRole[]> = {
+      'Toda la Comunidad': ['directivo', 'docente', 'prefecto', 'coordinador', 'tutor', 'alumno'],
+      'Docentes': ['docente', 'coordinador', 'directivo'],
+      'Padres de Familia': ['tutor'],
+      'Estudiantes': ['alumno'],
+    };
+
+    sendEmailNotification({
+      colegioId: effectiveCollege.id,
+      colegioNombre: effectiveCollege.nombre,
+      destinatarios: [`comunicados@${effectiveCollege.id}.edu.mx`],
+      rolesDestino: rolesMap[finalDestinatarios] || ['tutor', 'alumno'],
+      asunto: `[Comunicado Oficial] ${titulo}`,
+      cuerpo: contenido,
+      categoria: 'comunicado',
+      prioridad: prioridad === 'Urgente' ? 'urgente' : prioridad === 'Importante' ? 'alta' : 'normal',
     });
 
     setTitulo('');
@@ -39,26 +80,48 @@ export const NoticesModule: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-display font-bold text-xl md:text-2xl text-slate-900 flex items-center gap-2">
-            <Bell className="w-6 h-6" style={{ color: primaryColor }} />
+      <div
+        className="rounded-2xl p-5 sm:p-6 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors"
+        style={{
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
+          borderBottom: `4px solid ${goldColor}`,
+        }}
+      >
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-2xs"
+              style={{ backgroundColor: goldColor, color: primaryColor }}
+            >
+              Comunicación Oficial
+            </span>
+          </div>
+          <h2 className="font-display font-bold text-xl md:text-2xl text-white flex items-center gap-2">
+            <Bell className="w-6 h-6" style={{ color: goldColor }} />
             Comunicados y Circulares Institucionales
           </h2>
-          <p className="text-xs md:text-sm text-slate-500">
-            {activeCollege.nombre} · Avisos para padres de familia, docentes y comunidad escolar
+          <p className="text-xs md:text-sm text-slate-200">
+            {effectiveCollege.nombre} ·{' '}
+            {isTeacher
+              ? 'Envío de avisos y comunicados exclusivamente a tutores/padres y alumnos'
+              : 'Avisos para padres de familia, docentes y comunidad escolar'}
           </p>
         </div>
-
-        <button
-          onClick={() => setIsAddOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm text-white shadow-sm transition-all active:scale-98 self-start sm:self-auto"
-          style={{ backgroundColor: primaryColor }}
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Emitir Comunicado</span>
-        </button>
       </div>
+
+      {/* Action Buttons Bar (Below Header) */}
+      {canCreateNotice && (
+        <div className="flex flex-wrap items-center justify-end gap-2.5">
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-sm transition-all active:scale-98 cursor-pointer"
+            style={{ backgroundColor: goldColor, color: primaryColor }}
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>Emitir Comunicado</span>
+          </button>
+        </div>
+      )}
 
       <div className="space-y-3">
         {collegeNotices.map((n) => (
@@ -141,10 +204,19 @@ export const NoticesModule: React.FC = () => {
                     onChange={(e) => setDestinatarios(e.target.value as any)}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
-                    <option value="Toda la Comunidad">Toda la Comunidad</option>
-                    <option value="Padres de Familia">Padres de Familia</option>
-                    <option value="Docentes">Docentes</option>
-                    <option value="Estudiantes">Estudiantes</option>
+                    {isTeacher ? (
+                      <>
+                        <option value="Padres de Familia">Tutores / Padres de Familia</option>
+                        <option value="Estudiantes">Alumnos</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="Toda la Comunidad">Toda la Comunidad</option>
+                        <option value="Padres de Familia">Tutores / Padres de Familia</option>
+                        <option value="Docentes">Docentes</option>
+                        <option value="Estudiantes">Alumnos</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>

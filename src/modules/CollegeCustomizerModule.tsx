@@ -18,6 +18,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { createShieldSvg } from '../utils/shieldHelper';
+import { compressImageFile } from '../utils/imageCompressor';
 import { ReportCardModal } from '../components/ReportCardModal';
 
 // School color presets
@@ -47,6 +48,7 @@ export const CollegeCustomizerModule: React.FC = () => {
   const [primario, setPrimario] = useState(activeCollege.colores.primario);
   const [secundario, setSecundario] = useState(activeCollege.colores.secundario);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // College metadata
   const [nombre, setNombre] = useState(activeCollege.nombre);
@@ -70,34 +72,41 @@ export const CollegeCustomizerModule: React.FC = () => {
     }
   }, [activeCollege.id]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
+    try {
+      const dataUrl = await compressImageFile(file, 512, 512, 0.9);
       setEscudoUrl(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error al procesar y comprimir escudo:', err);
+    }
   };
 
-  const handleSave = () => {
-    updateCollegeBranding(activeCollege.id, escudoUrl, primario, secundario);
-    updateCollege(activeCollege.id, {
-      nombre,
-      lema,
-      director,
-      direccion,
-      colores: {
-        primario,
-        secundario,
-        textoCabecera: "#FFFFFF",
-      },
-      escudoUrl,
-    });
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3500);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await updateCollegeBranding(activeCollege.id, escudoUrl, primario, secundario);
+      await updateCollege(activeCollege.id, {
+        nombre,
+        lema,
+        director,
+        direccion,
+        colores: {
+          primario,
+          secundario,
+          textoCabecera: "#FFFFFF",
+        },
+        escudoUrl,
+      });
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3500);
+    } catch (err) {
+      console.error('Error al guardar en base de datos:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleGenerateShieldWithStyle = (iconType: 'book' | 'torch' | 'owl' | 'compass') => {
@@ -132,54 +141,66 @@ export const CollegeCustomizerModule: React.FC = () => {
     primario.toLowerCase() !== activeCollege.colores.primario.toLowerCase() ||
     secundario.toLowerCase() !== activeCollege.colores.secundario.toLowerCase();
 
+  const savedPrimary = activeCollege.colores.primario || '#0B2545';
+  const savedSecondary = activeCollege.colores.secundario || '#C59B27';
+
   return (
     <div className="space-y-6">
       {/* Module Title Banner */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 text-xs font-bold uppercase tracking-wider mb-2">
-            <Palette className="w-4 h-4 text-amber-600" />
+      <div
+        className="rounded-2xl p-5 sm:p-6 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors"
+        style={{
+          background: `linear-gradient(135deg, ${savedPrimary} 0%, ${savedPrimary}dd 100%)`,
+          borderBottom: `4px solid ${savedSecondary}`,
+        }}
+      >
+        <div className="space-y-1.5">
+          <div
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-2xs"
+            style={{ backgroundColor: savedSecondary, color: savedPrimary }}
+          >
+            <Palette className="w-4 h-4" />
             <span>Módulo Personalizar</span>
           </div>
 
-          <h2 className="font-display font-extrabold text-2xl text-slate-900 flex items-center gap-2.5">
+          <h2 className="font-display font-extrabold text-xl sm:text-2xl text-white flex items-center gap-2.5">
             Identidad Visual de {activeCollege.nombre}
           </h2>
-          <p className="text-xs sm:text-sm text-slate-600 max-w-2xl mt-1 leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-200 max-w-2xl leading-relaxed">
             Configura el <strong>color de tu dashboard</strong> y sube el <strong>escudo oficial</strong> de tu colegio.
-            Estas dos opciones se sincronizan inmediatamente en tu panel y aparecerán en todas las
-            boletas de calificaciones, credenciales y reportes oficiales.
+            Estas opciones se aplican al encabezado de todos los módulos, boletas de calificaciones, credenciales y reportes oficiales.
           </p>
         </div>
+      </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setShowBoletaModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs md:text-sm shadow-2xs transition-all cursor-pointer"
-          >
-            <Printer className="w-4 h-4 text-amber-600" />
-            <span>Ver Boleta con este Escudo</span>
-          </button>
+      {/* Action Buttons Bar (Below Header) */}
+      <div className="flex flex-wrap items-center justify-end gap-2.5">
+        <button
+          type="button"
+          onClick={() => setShowBoletaModal(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs md:text-sm shadow-2xs transition-all cursor-pointer"
+        >
+          <Printer className="w-4 h-4" style={{ color: savedPrimary }} />
+          <span>Ver Boleta con este Escudo</span>
+        </button>
 
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm text-white shadow-md transition-all active:scale-98 cursor-pointer"
-            style={{ backgroundColor: primario }}
-          >
-            {savedSuccess ? (
-              <>
-                <Check className="w-4 h-4 text-emerald-300" />
-                <span>¡Cambios Guardados con Éxito!</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Guardar Personalización</span>
-              </>
-            )}
-          </button>
-        </div>
+        <button
+          onClick={handleSave}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-sm transition-all active:scale-98 cursor-pointer"
+          style={{ backgroundColor: savedSecondary, color: savedPrimary }}
+        >
+          {savedSuccess ? (
+            <>
+              <Check className="w-4 h-4 text-emerald-700" />
+              <span>¡Cambios Guardados con Éxito!</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Guardar Personalización</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Confirmation Callout */}
@@ -370,17 +391,19 @@ export const CollegeCustomizerModule: React.FC = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-              {/* Escudo Preview Container */}
-              <div className="p-3 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/30 flex flex-col items-center justify-center shrink-0 w-36 h-36">
-                <img
-                  src={escudoUrl}
-                  alt="Escudo del colegio"
-                  className="w-24 h-24 object-contain"
-                />
-                <span className="text-[10px] text-slate-500 mt-1 font-semibold">
-                  Escudo Activo
-                </span>
-              </div>
+              {/* Escudo Preview Container (Only shown if uploaded) */}
+              {escudoUrl && (
+                <div className="p-3 rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/30 flex flex-col items-center justify-center shrink-0 w-36 h-36">
+                  <img
+                    src={escudoUrl}
+                    alt="Escudo del colegio"
+                    className="w-24 h-24 object-contain"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-1 font-semibold">
+                    Escudo Activo
+                  </span>
+                </div>
+              )}
 
               {/* Upload & Generator Buttons */}
               <div className="space-y-3 flex-1">
@@ -530,11 +553,13 @@ export const CollegeCustomizerModule: React.FC = () => {
                   style={{ backgroundColor: primario }}
                 >
                   <div className="flex items-center gap-2.5">
-                    <img
-                      src={escudoUrl}
-                      alt=""
-                      className="w-9 h-9 object-contain rounded bg-white p-0.5 border border-white/20 shadow-2xs"
-                    />
+                    {escudoUrl && (
+                      <img
+                        src={escudoUrl}
+                        alt=""
+                        className="w-9 h-9 object-contain rounded bg-white p-0.5 border border-white/20 shadow-2xs"
+                      />
+                    )}
                     <div className="min-w-0">
                       <div className="font-bold text-xs truncate max-w-[170px]">{nombre}</div>
                       <div className="text-[10px] text-slate-200 font-mono">{activeCollege.codigoCCT}</div>
@@ -564,11 +589,13 @@ export const CollegeCustomizerModule: React.FC = () => {
                 style={{ borderColor: `${secundario}80` }}
               >
                 <div className="flex items-center gap-3">
-                  <img
-                    src={escudoUrl}
-                    alt=""
-                    className="w-14 h-14 object-contain rounded-md bg-white p-1 border border-slate-200 shadow-xs"
-                  />
+                  {escudoUrl && (
+                    <img
+                      src={escudoUrl}
+                      alt=""
+                      className="w-14 h-14 object-contain rounded-md bg-white p-1 border border-slate-200 shadow-xs"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div
                       className="font-display font-black text-xs uppercase leading-tight truncate"
@@ -623,13 +650,19 @@ export const CollegeCustomizerModule: React.FC = () => {
             {/* Save Button */}
             <button
               onClick={handleSave}
-              className="w-full py-3 rounded-xl font-bold text-sm text-white shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isSaving}
+              className="w-full py-3 rounded-xl font-bold text-sm text-white shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
               style={{ backgroundColor: primario }}
             >
-              {savedSuccess ? (
+              {isSaving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                  <span>Sincronizando con Base de Datos...</span>
+                </>
+              ) : savedSuccess ? (
                 <>
                   <Check className="w-4 h-4 text-emerald-300" />
-                  <span>¡Guardado con Éxito en el Colegio!</span>
+                  <span>¡Guardado y Sincronizado en MongoDB!</span>
                 </>
               ) : (
                 <>

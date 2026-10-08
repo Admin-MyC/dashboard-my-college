@@ -59,3 +59,56 @@ export const createShieldSvg = (
 
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 };
+
+/**
+ * Escudo oficial institucional de DUNOR (Colegio Cervantes Moderno)
+ * Cuatro cuarteles: Árbol del saber, Cruz radiante, fondo carmesí y fondo celeste,
+ * con cinta central oficial con tipografía institucional "DUNOR".
+ */
+export const createDunorShieldSvg = (): string => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+    <defs>
+      <clipPath id="shieldClip">
+        <path d="M100 16 L168 38 C168 128 100 182 100 182 C100 182 32 128 32 38 Z"/>
+      </clipPath>
+    </defs>
+    <!-- Outer Shield Gold Border -->
+    <path d="M100 12 L172 36 C172 132 100 188 100 188 C100 188 28 132 28 36 Z" fill="#D97706" stroke="#92400E" stroke-width="2"/>
+    
+    <!-- Quarters Group clipped to shield -->
+    <g clip-path="url(#shieldClip)">
+      <!-- Top-Left Quarter: Deep Navy with Tree -->
+      <rect x="0" y="0" width="100" height="100" fill="#0E3A75"/>
+      <!-- Tree of knowledge -->
+      <path d="M60 88 L63 68 L57 68 L60 88 Z" fill="#FFFFFF"/>
+      <circle cx="60" cy="54" r="16" fill="#FFFFFF"/>
+      <circle cx="50" cy="58" r="12" fill="#FFFFFF"/>
+      <circle cx="70" cy="58" r="12" fill="#FFFFFF"/>
+      <circle cx="60" cy="46" r="12" fill="#FFFFFF"/>
+      <path d="M60 68 L60 52 M60 62 L52 54 M60 60 L68 52" stroke="#0E3A75" stroke-width="2.5" stroke-linecap="round"/>
+
+      <!-- Top-Right Quarter: Radiant Yellow with Cross -->
+      <rect x="100" y="0" width="100" height="100" fill="#FBBF24"/>
+      <!-- Radiant rays -->
+      <path d="M140 54 L122 36 M140 54 L158 36 M140 54 L122 72 M140 54 L158 72" stroke="#FEF08A" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="140" cy="54" r="2" fill="#FFFFFF"/>
+      <!-- Christian Cross -->
+      <rect x="137" y="38" width="6" height="32" rx="1.5" fill="#FFFFFF"/>
+      <rect x="127" y="47" width="26" height="6" rx="1.5" fill="#FFFFFF"/>
+
+      <!-- Bottom-Left Quarter: Crimson Red -->
+      <rect x="0" y="100" width="100" height="100" fill="#B91C1C"/>
+
+      <!-- Bottom-Right Quarter: Royal / Sky Blue -->
+      <rect x="100" y="100" width="100" height="100" fill="#0284C7"/>
+
+      <!-- Horizontal Ribbon with DUNOR Banner -->
+      <rect x="25" y="86" width="150" height="28" fill="#FFFFFF" stroke="#0E3A75" stroke-width="1.5"/>
+      <text x="100" y="106" font-family="'Outfit', 'Plus Jakarta Sans', sans-serif" font-weight="900" font-size="16" fill="#0E3A75" text-anchor="middle" letter-spacing="3.5">DUNOR</text>
+    </g>
+
+    <!-- Shield Outline Accent -->
+    <path d="M100 16 L168 38 C168 128 100 182 100 182 C100 182 32 128 32 38 Z" fill="none" stroke="#FFFFFF" stroke-width="3"/>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+};

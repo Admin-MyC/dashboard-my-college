@@ -4,7 +4,7 @@ import { ShieldAlert, Plus, Search, CheckCircle2, Clock, X, AlertTriangle, FileT
 import { IncidentRecord } from '../types';
 
 export const IncidentsModule: React.FC = () => {
-  const { activeCollege, incidents, students, addIncident, updateIncident } = useApp();
+  const { activeCollege, incidents, students, addIncident, updateIncident, sendEmailNotification } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
 
@@ -18,7 +18,10 @@ export const IncidentsModule: React.FC = () => {
   if (!activeCollege) return null;
 
   const primaryColor = activeCollege.colores.primario || '#0B2545';
-  const collegeStudents = students.filter((s) => s.colegioId === activeCollege.id);
+  const goldColor = activeCollege.colores.secundario || '#C59B27';
+  const collegeStudents = students.filter(
+    (s) => s.colegioId === activeCollege.id && s.estatus !== 'baja'
+  );
   const collegeIncidents = incidents.filter((i) => i.colegioId === activeCollege.id);
 
   const handleCreate = (e: React.FormEvent) => {
@@ -39,6 +42,24 @@ export const IncidentsModule: React.FC = () => {
       estatus: tipo === 'Reconocimiento' ? 'Resuelto' : 'En seguimiento',
     });
 
+    // Despachar notificación automática oficial por correo electrónico a los roles involucrados
+    const rolesTarget = tipo === 'Citatorio Tutor'
+      ? ['directivo', 'prefecto', 'psicologo']
+      : tipo === 'Grave'
+      ? ['directivo', 'prefecto']
+      : ['prefecto', 'docente'];
+
+    sendEmailNotification({
+      colegioId: activeCollege.id,
+      colegioNombre: activeCollege.nombre,
+      destinatarios: [st.tutorCorreo || 'tutor@familia.com', 'prefectura@mycollege.edu.mx', 'direccion@mycollege.edu.mx'],
+      rolesDestino: rolesTarget,
+      asunto: `[Incidencia ${tipo}] Reporte de conducta: ${st.nombre} ${st.apellidos} (${st.grado} ${st.grupo})`,
+      cuerpo: `Se ha registrado una incidencia disciplinaria en ${activeCollege.nombre}:\n\nAlumno: ${st.nombre} ${st.apellidos} (${st.grado} ${st.grupo})\nTipo: ${tipo}\nReportado por: ${reportadoPor}\nDescripción: ${descripcion}\nAcuerdos: ${acuerdos || 'En seguimiento'}`,
+      categoria: 'incidencia',
+      prioridad: tipo === 'Grave' || tipo === 'Citatorio Tutor' ? 'alta' : 'normal',
+    });
+
     setDescripcion('');
     setAcuerdos('');
     setIsAddOpen(false);
@@ -46,21 +67,38 @@ export const IncidentsModule: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-display font-bold text-xl md:text-2xl text-slate-900 flex items-center gap-2">
-            <ShieldAlert className="w-6 h-6 text-orange-600" />
+      <div
+        className="rounded-2xl p-5 sm:p-6 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors"
+        style={{
+          background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
+          borderBottom: `4px solid ${goldColor}`,
+        }}
+      >
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-2xs"
+              style={{ backgroundColor: goldColor, color: primaryColor }}
+            >
+              Seguimiento Conductual
+            </span>
+          </div>
+          <h2 className="font-display font-bold text-xl md:text-2xl text-white flex items-center gap-2">
+            <ShieldAlert className="w-6 h-6" style={{ color: goldColor }} />
             Incidencias Disciplinarias y Prefectura
           </h2>
-          <p className="text-xs md:text-sm text-slate-500">
+          <p className="text-xs md:text-sm text-slate-200">
             {activeCollege.nombre} · Bitácora de conducta, citatorios a tutores y reconocimientos al mérito
           </p>
         </div>
+      </div>
 
+      {/* Action Buttons Bar (Below Header) */}
+      <div className="flex flex-wrap items-center justify-end gap-2.5">
         <button
           onClick={() => setIsAddOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm text-white shadow-sm transition-all active:scale-98 self-start sm:self-auto cursor-pointer"
-          style={{ backgroundColor: primaryColor }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-sm transition-all active:scale-98 cursor-pointer"
+          style={{ backgroundColor: goldColor, color: primaryColor }}
         >
           <Plus className="w-4 h-4 stroke-[3]" />
           <span>Levantar Incidencia</span>

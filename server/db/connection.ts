@@ -19,11 +19,16 @@ export async function connectDB(): Promise<boolean> {
     const conn = await mongoose.connect(uri, {
       dbName: targetDbName,
       serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 50,
+      minPoolSize: 5,
+      socketTimeoutMS: 45000,
+      maxIdleTimeMS: 30000,
+      autoIndex: true,
     });
 
     isConnected = conn.connection.readyState === 1;
     connectionError = null;
-    console.log(`[MongoDB] ¡Conexión exitosa a la base de datos: ${conn.connection.name}!`);
+    console.log(`[MongoDB] ¡Conexión exitosa a la base de datos: ${conn.connection.name} (Pool: 50 conexiones)!`);
     return true;
   } catch (error: any) {
     console.error('[MongoDB] Error al conectar a MongoDB:', error.message || error);

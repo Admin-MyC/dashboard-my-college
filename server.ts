@@ -1,11 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectDB } from './server/db/connection';
 import { seedDatabaseIfEmpty } from './server/db/seed';
 import { apiRouter } from './server/routes/api';
+import { apiGeneralRateLimiter } from './server/security/authSecurity';
 
 dotenv.config();
 
@@ -14,7 +16,24 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = Number(process.env.DEFAULT_APP_PORT) || 3000;
+
+  // Trust reverse proxy for accurate IP determination in rate-limiting
+  app.set('trust proxy', 1);
+
+  // 1. Security Headers (Helmet):
+  // Protects against MIME-sniffing, enforces X-Content-Type-Options, HSTS, Referrer-Policy,
+  // while configuring frameguard/CSP to allow the preview iframe to render seamlessly.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Allows Vite and React modules in development
+      crossOriginEmbedderPolicy: false,
+      frameguard: false, // Allows iframe embedding for AI Studio preview environment
+      hidePoweredBy: true, // Removes X-Powered-By: Express header
+      xssFilter: true, // X-XSS-Protection header
+      noSniff: true, // X-Content-Type-Options: nosniff
+    })
+  );
 
   // Middleware
   app.use(cors());
@@ -26,6 +45,9 @@ async function startServer() {
   if (connected) {
     await seedDatabaseIfEmpty();
   }
+
+  // General API Rate Limiting to prevent DoS
+  app.use('/api', apiGeneralRateLimiter);
 
   // Mount API routes under /api
   app.use('/api', apiRouter);
