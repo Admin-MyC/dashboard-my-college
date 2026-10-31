@@ -1,0 +1,6 @@
+{
+  "name": "My College — Sistema de Administración Escolar Multicolegio",
+  "description": "Dashboard para la gestión integral de colegios, roles multi-institucionales, control de módulos por suscripción y personalización de escudos y colores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
