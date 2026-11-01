@@ -171,6 +171,92 @@ export function getEffectiveGradesForStudent(params: {
   return result;
 }
 
+/**
+ * Promedia las calificaciones mayores a 0 de una lista de meses/periodos.
+ * Si todos son 0 o no hay valores registrados, regresa 0.
+ */
+function averageNonZero(vals: (number | undefined | null)[]): number {
+  const valid = vals
+    .map((v) => Number(v) || 0)
+    .filter((v) => v > 0);
+  if (valid.length === 0) return 0;
+  const sum = valid.reduce((acc, curr) => acc + curr, 0);
+  return Number((sum / valid.length).toFixed(1));
+}
+
+/**
+ * Obtiene o proyecta los 10 meses base (Sep..Jun) de un registro de calificación.
+ * 1. Si existen calificaciones mensuales registradas en g.periodosPorModalidad?.mensual, las usa como fuente principal.
+ * 2. Si no hay mensual pero hay bimestral (g.periodosPorModalidad?.bimestral o g.periodo1..5), proyecta a los 10 meses.
+ * 3. Si no hay bimestral pero hay trimestral, cuatrimestral o semestral, proyecta proporcionalmente.
+ */
+export function getBaseMonthlyGrades(g: GradeRecord): number[] {
+  // 1. Calificaciones mensuales directas (10 meses: Sep, Oct, Nov, Dic, Ene, Feb, Mar, Abr, May, Jun)
+  const monthlyArr = g.periodosPorModalidad?.mensual;
+  if (Array.isArray(monthlyArr) && monthlyArr.length > 0 && monthlyArr.some((v) => Number(v) > 0)) {
+    return Array.from({ length: 10 }, (_, i) => Number(Number(monthlyArr[i] || 0).toFixed(1)));
+  }
+
+  // 2. Proyección desde bimestral (5 bimestres -> 10 meses, 2 meses por cada bimestre)
+  const bimestralArr =
+    g.periodosPorModalidad?.bimestral ||
+    [g.periodo1 || 0, g.periodo2 || 0, g.periodo3 || 0, g.periodo4 || 0, g.periodo5 || 0];
+
+  if (Array.isArray(bimestralArr) && bimestralArr.some((v) => Number(v) > 0)) {
+    const projected: number[] = [];
+    for (let b = 0; b < 5; b++) {
+      const val = Number(Number(bimestralArr[b] || 0).toFixed(1));
+      projected.push(val); // Mes impar (Sep, Nov, Ene, Mar, May)
+      projected.push(val); // Mes par (Oct, Dic, Feb, Abr, Jun)
+    }
+    return projected;
+  }
+
+  // 3. Proyección desde trimestral (3 trimestres -> 10 meses: [0..2], [3..5], [6..9])
+  const trimestralArr = g.periodosPorModalidad?.trimestral;
+  if (Array.isArray(trimestralArr) && trimestralArr.some((v) => Number(v) > 0)) {
+    const t1 = Number(Number(trimestralArr[0] || 0).toFixed(1));
+    const t2 = Number(Number(trimestralArr[1] || 0).toFixed(1));
+    const t3 = Number(Number(trimestralArr[2] || 0).toFixed(1));
+    return [t1, t1, t1, t2, t2, t2, t3, t3, t3, t3];
+  }
+
+  // 4. Proyección desde cuatrimestral (3 cuatrimestres -> [0..3], [4..7], [8..9])
+  const cuatrimestralArr = g.periodosPorModalidad?.cuatrimestral;
+  if (Array.isArray(cuatrimestralArr) && cuatrimestralArr.some((v) => Number(v) > 0)) {
+    const c1 = Number(Number(cuatrimestralArr[0] || 0).toFixed(1));
+    const c2 = Number(Number(cuatrimestralArr[1] || 0).toFixed(1));
+    const c3 = Number(Number(cuatrimestralArr[2] || 0).toFixed(1));
+    return [c1, c1, c1, c1, c2, c2, c2, c2, c3, c3];
+  }
+
+  // 5. Proyección desde semestral (2 semestres -> [0..4], [5..9])
+  const semestralArr = g.periodosPorModalidad?.semestral;
+  if (Array.isArray(semestralArr) && semestralArr.some((v) => Number(v) > 0)) {
+    const s1 = Number(Number(semestralArr[0] || 0).toFixed(1));
+    const s2 = Number(Number(semestralArr[1] || 0).toFixed(1));
+    return [s1, s1, s1, s1, s1, s2, s2, s2, s2, s2];
+  }
+
+  // 6. Campos base legado periodo1, periodo2, periodo3
+  const p1 = Number(g.periodo1 || 0);
+  const p2 = Number(g.periodo2 || 0);
+  const p3 = Number(g.periodo3 || 0);
+  if (p1 > 0 || p2 > 0 || p3 > 0) {
+    return [p1, p1, p2, p2, p3, p3, 0, 0, 0, 0];
+  }
+
+  return Array.from({ length: 10 }, () => 0);
+}
+
+/**
+ * Calcula las calificaciones para cualquier modalidad agrupando y promediando los meses base:
+ * - mensual: muestra por mes individual (10 meses: Sep, Oct, Nov, Dic, Ene, Feb, Mar, Abr, May, Jun)
+ * - bimestral: junta de a dos los meses y promedia las calificaciones (5 bimestres: Sep-Oct, Nov-Dic, Ene-Feb, Mar-Abr, May-Jun)
+ * - trimestral: junta de a tres los meses y promedia las calificaciones (3 trimestres: Sep-Nov, Dic-Feb, Mar-Jun)
+ * - cuatrimestral: junta de a cuatro los meses y promedia las calificaciones (3 cuatrimestres: Sep-Dic, Ene-Abr, May-Jun)
+ * - semestral: junta los meses por semestre y promedia las calificaciones (2 semestres: Sep-Ene, Feb-Jun)
+ */
 export function getGradePeriodsForModalidad(
   g: GradeRecord,
   periodicidad: EvaluationPeriodicity,
@@ -179,26 +265,83 @@ export function getGradePeriodsForModalidad(
   const meta = EVALUATION_PERIODICITY_CONFIG[periodicidad] || EVALUATION_PERIODICITY_CONFIG.bimestral;
   const count = meta.periodCount;
 
-  const customArr = g.periodosPorModalidad?.[periodicidad];
-  if (Array.isArray(customArr) && customArr.length > 0) {
-    const validIdxs = savedPeriods
-      ? new Set(
-          savedPeriods
-            .filter((p) => p.periodicidad === periodicidad)
-            .map((p) => Number(p.periodoIndex))
-        )
-      : null;
+  // 1. Obtener los 10 meses base (registrados o proyectados)
+  const months = getBaseMonthlyGrades(g);
+  let computed: number[] = [];
 
-    return Array.from({ length: count }, (_, idx) => {
-      if (validIdxs && !validIdxs.has(idx + 1)) {
-        return 0;
-      }
-      const val = customArr[idx];
-      return val !== undefined ? Number((Number(val) || 0).toFixed(1)) : 0;
-    });
+  switch (periodicidad) {
+    case 'mensual':
+      // Muestra por mes individual
+      computed = [...months];
+      break;
+
+    case 'bimestral':
+      // Junta de a dos los meses y promedia las calificaciones
+      computed = [
+        averageNonZero([months[0], months[1]]), // 1° Bimestre (Sep-Oct)
+        averageNonZero([months[2], months[3]]), // 2° Bimestre (Nov-Dic)
+        averageNonZero([months[4], months[5]]), // 3° Bimestre (Ene-Feb)
+        averageNonZero([months[6], months[7]]), // 4° Bimestre (Mar-Abr)
+        averageNonZero([months[8], months[9]]), // 5° Bimestre (May-Jun)
+      ];
+      break;
+
+    case 'trimestral':
+      // Junta de a tres los meses y promedia las calificaciones
+      computed = [
+        averageNonZero([months[0], months[1], months[2]]), // 1° Trimestre (Sep-Nov)
+        averageNonZero([months[3], months[4], months[5]]), // 2° Trimestre (Dic-Feb)
+        averageNonZero([months[6], months[7], months[8], months[9]]), // 3° Trimestre (Mar-Jun)
+      ];
+      break;
+
+    case 'cuatrimestral':
+      // Junta de a cuatro los meses y promedia las calificaciones
+      computed = [
+        averageNonZero([months[0], months[1], months[2], months[3]]), // 1° Cuatrimestre (Sep-Dic)
+        averageNonZero([months[4], months[5], months[6], months[7]]), // 2° Cuatrimestre (Ene-Abr)
+        averageNonZero([months[8], months[9]]), // 3° Cuatrimestre (May-Jun)
+      ];
+      break;
+
+    case 'semestral':
+      // Junta los meses por semestre y promedia las calificaciones
+      computed = [
+        averageNonZero([months[0], months[1], months[2], months[3], months[4]]), // 1° Semestre (Sep-Ene)
+        averageNonZero([months[5], months[6], months[7], months[8], months[9]]), // 2° Semestre (Feb-Jun)
+      ];
+      break;
+
+    default:
+      computed = Array.from({ length: count }, () => 0);
   }
 
-  return Array.from({ length: count }, () => 0);
+  // 2. Si existen calificaciones directas guardadas para esta modalidad y los meses estaban en 0, respetar directas
+  const customArr = g.periodosPorModalidad?.[periodicidad];
+  if (
+    Array.isArray(customArr) &&
+    customArr.length > 0 &&
+    customArr.some((v) => Number(v) > 0) &&
+    !months.some((v) => v > 0)
+  ) {
+    computed = customArr.map((v) => Number((Number(v) || 0).toFixed(1)));
+  }
+
+  // 3. Filtrar según periodos oficiales evaluados si se especificaron
+  if (savedPeriods && savedPeriods.length > 0) {
+    const validIdxs = new Set(
+      savedPeriods
+        .filter((p) => p.periodicidad === periodicidad)
+        .map((p) => Number(p.periodoIndex))
+    );
+    if (validIdxs.size > 0) {
+      return Array.from({ length: count }, (_, idx) => {
+        return validIdxs.has(idx + 1) ? Number((computed[idx] || 0).toFixed(1)) : 0;
+      });
+    }
+  }
+
+  return Array.from({ length: count }, (_, idx) => Number((computed[idx] || 0).toFixed(1)));
 }
 
 function hexToRgb(hex: string): [number, number, number] {

@@ -842,16 +842,28 @@ const AppContent: React.FC = () => {
     }
 
     // If logged in as Alumno, route strictly to the requested student modules
+    // If logged in as Alumno, route to allowed student modules (with full fallback to other permitted modules)
     if (currentUser.rol === 'alumno') {
       switch (currentTab) {
         case 'mis_tareas':
+        case 'tareas_examenes':
           return <StudentPortalModule initialTab="mis_tareas" onNavigateTab={handleSelectTab} />;
         case 'mis_examenes':
           return <StudentPortalModule initialTab="mis_examenes" onNavigateTab={handleSelectTab} />;
         case 'mis_comunicados':
+        case 'comunicados':
           return <StudentPortalModule initialTab="mis_comunicados" onNavigateTab={handleSelectTab} />;
         case 'mi_biblioteca':
+        case 'biblioteca':
           return <StudentPortalModule initialTab="mi_biblioteca" onNavigateTab={handleSelectTab} />;
+        case 'calendario':
+          return <SchoolCalendarModule />;
+        case 'horarios':
+          return <SchedulesModule />;
+        case 'calificaciones':
+          return <GradesModule onNavigateTab={handleSelectTab} />;
+        case 'asistencias':
+          return <AttendanceModule />;
         case 'mi_perfil':
           return <UserProfileModule />;
         default:
@@ -859,7 +871,7 @@ const AppContent: React.FC = () => {
       }
     }
 
-    // If logged in as Tutor, route strictly to the allowed Tutor modules (first module is tutor_cuotas)
+    // If logged in as Tutor, route to allowed Tutor modules
     if (currentUser.rol === 'tutor') {
       switch (currentTab) {
         case 'tutor_cuotas':
@@ -887,6 +899,16 @@ const AppContent: React.FC = () => {
           );
         case 'calendario':
           return <SchoolCalendarModule />;
+        case 'horarios':
+          return <SchedulesModule />;
+        case 'tareas_examenes':
+          return <TasksExamsModule />;
+        case 'asistencias':
+          return <AttendanceModule />;
+        case 'incidencias':
+          return <IncidentsModule />;
+        case 'biblioteca':
+          return <LibraryModule />;
         case 'mi_perfil':
           return <UserProfileModule />;
         default:
@@ -1073,6 +1095,25 @@ const AppContent: React.FC = () => {
               onTriggerEnFila={handleTriggerEnFila}
             />
           );
+        case 'dashboard_general':
+          return (
+            <GlobalDashboard
+              onNavigateTab={handleSelectTab}
+              onOpenAddCollegeModal={() => setCurrentTab('colegios')}
+            />
+          );
+        case 'colegios':
+          return <CollegesModule onNavigateTab={handleSelectTab} />;
+        case 'usuarios_globales':
+          return <UsersModule />;
+        case 'perfiles':
+          return <ProfilesModule />;
+        case 'permisos':
+          return <PermissionsModule />;
+        case 'planes_modulos':
+          return <PlansBillingModule />;
+        case 'bitacora_logs':
+          return <ActivityLogsModule />;
         default:
           if (currentUser.rol === 'directivo' || currentUser.rol === 'coordinador') {
             return <SchoolSummaryModule onNavigateTab={handleSelectTab} />;

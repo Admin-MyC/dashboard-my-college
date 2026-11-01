@@ -256,8 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  // Specific exclusive navigation items for Alumno role
-  // "al colocar estas credenciales les mostrara el perfil Alumnos, donde pueden ver: Mis Tareas, Mis Exámenes, Mis Comunicados y Mi Biblioteca"
+  // Specific navigation items for Alumno role
   const alumnoNavItems = [
     {
       id: 'mis_tareas',
@@ -284,6 +283,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Library,
     },
     {
+      id: 'calendario',
+      label: 'Calendario Escolar',
+      sublabel: 'Días Sin Clases y Puentes',
+      icon: Calendar,
+    },
+    {
+      id: 'horarios',
+      label: 'Horarios',
+      sublabel: 'Horario de Clases',
+      icon: Calendar,
+    },
+    {
+      id: 'calificaciones',
+      label: 'Calificaciones',
+      sublabel: 'Boleta de Calificaciones',
+      icon: Award,
+    },
+    {
+      id: 'asistencias',
+      label: 'Asistencia',
+      sublabel: 'Registro de Asistencia',
+      icon: QrCode,
+    },
+    {
       id: 'mi_perfil',
       label: 'Mi Perfil',
       sublabel: 'Credencial y Datos',
@@ -291,7 +314,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  // Specific exclusive navigation items for Tutor role
+  // Specific navigation items for Tutor role
   const tutorNavItems = [
     {
       id: 'tutor_cuotas',
@@ -330,6 +353,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Calendar,
     },
     {
+      id: 'horarios',
+      label: 'Horarios',
+      sublabel: 'Roles de Clases',
+      icon: Calendar,
+    },
+    {
+      id: 'tareas_examenes',
+      label: 'Tareas y Exámenes',
+      sublabel: 'Actividades Escolares',
+      icon: ClipboardList,
+    },
+    {
+      id: 'asistencias',
+      label: 'Asistencia',
+      sublabel: 'Registro de Asistencia',
+      icon: QrCode,
+    },
+    {
+      id: 'incidencias',
+      label: 'Incidencias',
+      sublabel: 'Reportes y Citatorios',
+      icon: ShieldAlert,
+    },
+    {
+      id: 'biblioteca',
+      label: 'Biblioteca',
+      sublabel: 'Acervo y Préstamos',
+      icon: BookMarked,
+    },
+    {
       id: 'mi_perfil',
       label: 'Mi Perfil',
       sublabel: 'Búsqueda CURP y Tutores',
@@ -337,234 +390,254 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  // College-specific navigation items mapped to requested modules and role access
+  // Dynamic college navigation items matching SYSTEM_MODULES_REGISTRY
   const collegeNavConfig: {
-    moduleId: CollegeModuleId | null;
     id: string;
     label: string;
     icon: any;
     sublabel?: string;
     isSpecial?: boolean;
-    allowedRoles?: UserRole[];
   }[] = [
     {
-      moduleId: null, // Only for Administradores and Control Escolar
       id: 'colegio_resumen',
       label: 'Resumen del Colegio',
       icon: LayoutDashboard,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'supervisor', 'prefecto'],
     },
     {
-      moduleId: null, // For Directivo and Coordinador
       id: 'resumen_escolar',
       label: 'Resumen Escolar',
       icon: BarChart3,
-      allowedRoles: ['superusuario', 'directivo', 'coordinador'],
     },
     {
-      moduleId: null, // For Psicólogo
       id: 'resumen_psicologico',
       label: 'Resumen Psicológico',
       icon: HeartHandshake,
-      allowedRoles: ['superusuario', 'psicologo'],
     },
     {
-      moduleId: null, // For Docente
       id: 'resumen_docentes',
       label: 'Resumen Docentes',
       icon: GraduationCap,
-      allowedRoles: ['superusuario', 'docente'],
     },
     {
-      moduleId: null, // Always available for Admin & Control Escolar
       id: 'campus',
       label: 'Campus',
       sublabel: 'Sedes y Asignación',
       icon: Building2,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'prefecto'],
     },
     {
-      moduleId: null, // Always available for Admin & Control Escolar
       id: 'ciclo_escolar',
       label: 'Ciclo Escolar',
       sublabel: 'Fechas y Asignaciones',
       icon: Calendar,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'prefecto'],
     },
     {
-      moduleId: 'preinscripciones' as CollegeModuleId,
       id: 'preinscripciones',
       label: 'Preinscripciones',
       sublabel: 'Aspirantes y Admisión',
       icon: UserPlus,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor'],
     },
     {
-      moduleId: 'tutores' as CollegeModuleId,
       id: 'tutores',
       label: 'Tutores',
       sublabel: 'Padrón de Familias',
       icon: Users2,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor'],
     },
     {
-      moduleId: 'cobros' as CollegeModuleId,
       id: 'cobros',
       label: 'Cobros',
       sublabel: 'Conceptos y Tarifas',
       icon: CreditCard,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor'],
     },
     {
-      moduleId: 'estudiantes' as CollegeModuleId,
-      id: 'estudiantes',
-      label: 'Control de Alumnos',
-      icon: GraduationCap,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'prefecto', 'psicologo'],
-    },
-    {
-      moduleId: 'docentes' as CollegeModuleId,
-      id: 'docentes',
-      label: 'Docentes',
-      icon: Users,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor'],
-    },
-    {
-      moduleId: 'materias' as CollegeModuleId,
-      id: 'materias',
-      label: 'Materias y Grupos',
-      icon: BookOpen,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor'],
-    },
-    {
-      moduleId: 'evaluaciones' as CollegeModuleId,
-      id: 'evaluaciones',
-      label: 'Evaluaciones',
-      sublabel: 'Conceptos 100% y Registros',
-      icon: ClipboardCheck,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'docente'],
-    },
-    {
-      moduleId: 'calificaciones' as CollegeModuleId,
-      id: 'calificaciones',
-      label: 'Calificaciones y Boletas',
-      icon: Award,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'docente'],
-    },
-    {
-      moduleId: 'asistencias' as CollegeModuleId,
-      id: 'asistencias',
-      label: 'Asistencia',
-      icon: QrCode,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'prefecto', 'docente'],
-    },
-    {
-      moduleId: null,
-      id: 'calendario',
-      label: 'Calendario',
-      sublabel: 'Días Sin Clases',
-      icon: Calendar,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'prefecto', 'docente', 'psicologo', 'tutor'],
-    },
-    {
-      moduleId: null,
-      id: 'horarios',
-      label: 'Horarios',
-      sublabel: 'Roles por Grupo',
-      icon: Calendar,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'prefecto', 'docente'],
-    },
-    {
-      moduleId: 'pagos' as CollegeModuleId,
       id: 'pagos',
       label: 'Colegiaturas y Pagos',
       icon: CreditCard,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo'],
     },
     {
-      moduleId: 'cafeteria' as CollegeModuleId,
       id: 'cafeteria',
       label: 'Cafetería',
       sublabel: 'Productos y Órdenes QR',
       icon: UtensilsCrossed,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'prefecto'],
     },
     {
-      moduleId: 'tareas_examenes' as CollegeModuleId,
+      id: 'estudiantes',
+      label: 'Control de Alumnos',
+      icon: GraduationCap,
+    },
+    {
+      id: 'docentes',
+      label: 'Docentes',
+      icon: Users,
+    },
+    {
+      id: 'materias',
+      label: 'Materias y Grupos',
+      icon: BookOpen,
+    },
+    {
+      id: 'evaluaciones',
+      label: 'Evaluaciones',
+      sublabel: 'Conceptos 100% y Registros',
+      icon: ClipboardCheck,
+    },
+    {
+      id: 'calificaciones',
+      label: 'Calificaciones y Boletas',
+      icon: Award,
+    },
+    {
+      id: 'asistencias',
+      label: 'Asistencia',
+      icon: QrCode,
+    },
+    {
+      id: 'calendario',
+      label: 'Calendario Escolar',
+      sublabel: 'Días Sin Clases',
+      icon: Calendar,
+    },
+    {
+      id: 'horarios',
+      label: 'Horarios',
+      sublabel: 'Roles por Grupo',
+      icon: Calendar,
+    },
+    {
       id: 'tareas_examenes',
       label: 'Tareas y Exámenes',
       icon: ClipboardList,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'docente'],
     },
     {
-      moduleId: 'actividades_docentes' as CollegeModuleId,
       id: 'actividades_docentes',
       label: 'Planeaciones Docentes',
       icon: Calendar,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'docente'],
     },
     {
-      moduleId: 'incidencias' as CollegeModuleId,
       id: 'incidencias',
       label: 'Incidencias y Prefectura',
       icon: ShieldAlert,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'prefecto', 'psicologo'],
     },
     {
-      moduleId: null, // Psychology is linked or available with staff
       id: 'psicologia',
       label: 'Psicología y Orientación',
       icon: HeartHandshake,
       isSpecial: true,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'psicologo'],
     },
     {
-      moduleId: null, // Expedientes de Psicología
       id: 'expedientes',
       label: 'Expedientes',
       sublabel: 'Seguimiento por Alumno',
       icon: FolderHeart,
       isSpecial: true,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'psicologo'],
     },
     {
-      moduleId: 'biblioteca' as CollegeModuleId,
       id: 'biblioteca',
       label: 'Biblioteca',
       icon: BookMarked,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'docente'],
     },
     {
-      moduleId: 'comunicados' as CollegeModuleId,
       id: 'comunicados',
       label: 'Comunicados y Avisos',
       icon: Bell,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'prefecto', 'docente', 'psicologo'],
     },
     {
-      moduleId: 'usuarios' as CollegeModuleId,
       id: 'usuarios_colegio',
       label: 'Usuarios del Colegio',
       icon: UserCheck,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar'],
     },
     {
-      moduleId: null, // Always available customizer
       id: 'personalizar',
       label: 'Personalizar',
       sublabel: 'Escudo y Colores',
       icon: Palette,
       isSpecial: true,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar'],
     },
     {
-      moduleId: null, // Always available for all roles
+      id: 'dashboard_general',
+      label: 'Dashboard General',
+      icon: LayoutDashboard,
+    },
+    {
+      id: 'colegios',
+      label: 'Colegios e Instituciones',
+      icon: Building2,
+    },
+    {
+      id: 'usuarios_globales',
+      label: 'Gestión de Usuarios',
+      icon: Users,
+    },
+    {
+      id: 'perfiles',
+      label: 'Perfiles',
+      icon: Users,
+    },
+    {
+      id: 'permisos',
+      label: 'Permisos',
+      icon: Lock,
+    },
+    {
+      id: 'planes_modulos',
+      label: 'Planes y Facturación',
+      icon: CreditCard,
+    },
+    {
+      id: 'comisiones_plataforma',
+      label: 'Comisiones de Plataforma',
+      icon: Percent,
+    },
+    {
+      id: 'bitacora_logs',
+      label: 'Bitácora de Actividades (TXT)',
+      icon: FileText,
+    },
+    {
+      id: 'tutor_cuotas',
+      label: 'Cuotas Escolares',
+      icon: CreditCard,
+    },
+    {
+      id: 'mi_cafeteria',
+      label: 'Mi Cafetería',
+      icon: UtensilsCrossed,
+    },
+    {
+      id: 'tutor_historial',
+      label: 'Historial Académico',
+      icon: Award,
+    },
+    {
+      id: 'tutor_alumnos',
+      label: 'Alumnos a mi Cargo',
+      icon: GraduationCap,
+    },
+    {
+      id: 'mis_tareas',
+      label: 'Mis Tareas',
+      icon: BookOpen,
+    },
+    {
+      id: 'mis_examenes',
+      label: 'Mis Exámenes',
+      icon: Award,
+    },
+    {
+      id: 'mis_comunicados',
+      label: 'Mis Comunicados',
+      icon: Bell,
+    },
+    {
+      id: 'mi_biblioteca',
+      label: 'Mi Biblioteca',
+      icon: Library,
+    },
+    {
       id: 'mi_perfil',
       label: 'Mi Perfil',
       sublabel: 'Datos y Contraseña',
       icon: User,
       isSpecial: true,
-      allowedRoles: ['superusuario', 'administrador', 'control_escolar', 'directivo', 'coordinador', 'supervisor', 'prefecto', 'docente', 'psicologo'],
     },
   ];
 
@@ -1063,16 +1136,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {sortItemsByRoleOrder(collegeNavConfig).map((item) => {
-              // Check allowedRoles on the item first
-              if (
-                item.allowedRoles &&
-                currentUser.rol !== 'superusuario' &&
-                currentUser.rol !== 'soporte' &&
-                !item.allowedRoles.includes(currentUser.rol)
-              ) {
-                return null;
-              }
-
               // Check dynamic role permission from Permisos module (both Global and College)
               if (!hasRolePermission(currentUser.rol, item.id, selectedCollegeId)) {
                 return null;

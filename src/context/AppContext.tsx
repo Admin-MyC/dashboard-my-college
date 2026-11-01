@@ -1545,80 +1545,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(merged.docente) && !merged.docente.includes('evaluaciones')) {
         merged.docente = [...merged.docente, 'evaluaciones'];
       }
-    }
 
-    // Remove summary modules that belong to other profiles so each profile only ever has its own summary module if enabled
-    (['administrador', 'control_escolar', 'supervisor', 'prefecto'] as UserRole[]).forEach((r) => {
-      const list = (Array.isArray(merged[r]) ? merged[r] : DEFAULT_ROLE_PERMISSIONS[r]).filter(
-        (m) =>
-          m !== 'resumen_escolar' &&
-          m !== 'resumen_psicologico' &&
-          m !== 'resumen_docentes'
-      );
-      merged[r] = isInitialMigration && !list.includes('colegio_resumen')
-        ? ['colegio_resumen', ...list]
-        : list;
-    });
-
-    (['directivo', 'coordinador'] as UserRole[]).forEach((r) => {
-      const rawList = Array.isArray(merged[r]) ? merged[r] : DEFAULT_ROLE_PERMISSIONS[r];
-      const list = rawList.filter(
-        (m) =>
-          m !== 'colegio_resumen' &&
-          m !== 'resumen_psicologico' &&
-          m !== 'resumen_docentes'
-      );
-      merged[r] = isInitialMigration && !list.includes('resumen_escolar')
-        ? ['resumen_escolar', ...list]
-        : list;
-    });
-
-    {
-      const rawList = Array.isArray(merged.psicologo)
-        ? merged.psicologo
-        : DEFAULT_ROLE_PERMISSIONS.psicologo;
-      let list = rawList.filter(
-        (m) =>
-          m !== 'colegio_resumen' &&
-          m !== 'resumen_escolar' &&
-          m !== 'resumen_docentes'
-      );
-      if (!list.includes('psicologia')) {
-        list = [...list, 'psicologia'];
+      // Initial defaults for summary modules
+      (['administrador', 'control_escolar', 'supervisor', 'prefecto'] as UserRole[]).forEach((r) => {
+        const list = Array.isArray(merged[r]) ? merged[r] : DEFAULT_ROLE_PERMISSIONS[r];
+        if (!list.includes('colegio_resumen')) {
+          merged[r] = ['colegio_resumen', ...list];
+        }
+      });
+      (['directivo', 'coordinador'] as UserRole[]).forEach((r) => {
+        const list = Array.isArray(merged[r]) ? merged[r] : DEFAULT_ROLE_PERMISSIONS[r];
+        if (!list.includes('resumen_escolar')) {
+          merged[r] = ['resumen_escolar', ...list];
+        }
+      });
+      if (Array.isArray(merged.psicologo) && !merged.psicologo.includes('resumen_psicologico')) {
+        merged.psicologo = ['resumen_psicologico', ...merged.psicologo];
       }
-      if (!list.includes('expedientes')) {
-        list = [...list, 'expedientes'];
+      if (Array.isArray(merged.docente) && !merged.docente.includes('resumen_docentes')) {
+        merged.docente = ['resumen_docentes', ...merged.docente];
       }
-      merged.psicologo = isInitialMigration && !list.includes('resumen_psicologico')
-        ? ['resumen_psicologico', ...list]
-        : list;
-    }
 
-    {
-      const rawList = Array.isArray(merged.docente)
-        ? merged.docente
-        : DEFAULT_ROLE_PERMISSIONS.docente;
-      const list = rawList.filter(
-        (m) =>
-          m !== 'colegio_resumen' &&
-          m !== 'resumen_escolar' &&
-          m !== 'resumen_psicologico' &&
-          m !== 'estudiantes' &&
-          m !== 'control_escolar' &&
-          m !== 'materias'
-      );
-      merged.docente = isInitialMigration && !list.includes('resumen_docentes')
-        ? ['resumen_docentes', ...list]
-        : list;
-    }
-
-    // Ensure tutor has mis_comunicados and mi_cafeteria
-    if (Array.isArray(merged.tutor)) {
-      if (!merged.tutor.includes('mis_comunicados')) {
-        merged.tutor = ['tutor_cuotas', 'mis_comunicados', ...merged.tutor.filter((id) => id !== 'tutor_cuotas' && id !== 'mis_comunicados')];
-      }
-      if (!merged.tutor.includes('mi_cafeteria') && !merged.tutor.includes('cafeteria')) {
-        merged.tutor = ['tutor_cuotas', 'mi_cafeteria', ...merged.tutor.filter((id) => id !== 'tutor_cuotas' && id !== 'mi_cafeteria' && id !== 'cafeteria')];
+      if (Array.isArray(merged.tutor)) {
+        if (!merged.tutor.includes('mis_comunicados')) {
+          merged.tutor = ['tutor_cuotas', 'mis_comunicados', ...merged.tutor.filter((id) => id !== 'tutor_cuotas' && id !== 'mis_comunicados')];
+        }
+        if (!merged.tutor.includes('mi_cafeteria') && !merged.tutor.includes('cafeteria')) {
+          merged.tutor = ['tutor_cuotas', 'mi_cafeteria', ...merged.tutor.filter((id) => id !== 'tutor_cuotas' && id !== 'mi_cafeteria' && id !== 'cafeteria')];
+        }
       }
     }
 
@@ -1768,130 +1722,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
       }
 
-      // 1. Check Global Permissions for soporte first: if disabled in Global Mode for soporte, it is disabled everywhere
-      const globalSoporteAllowed = rolePermissions?.soporte;
-      if (Array.isArray(globalSoporteAllowed) && !globalSoporteAllowed.includes(normalizeId)) {
+      const globalSoporteAllowed = rolePermissions?.soporte || DEFAULT_ROLE_PERMISSIONS.soporte;
+      if (!globalSoporteAllowed.includes(normalizeId)) {
         return false;
       }
 
-      // 2. If inside a college, check college-specific permissions for soporte
-      if (effectiveCollegeId && collegeRolePermissions[effectiveCollegeId]) {
-        const colMap = collegeRolePermissions[effectiveCollegeId];
-        const colSoporteAllowed = colMap?.soporte;
-        if (Array.isArray(colSoporteAllowed) && !colSoporteAllowed.includes(normalizeId)) {
-          return false;
-        }
-      }
-
-      if (!effectiveCollegeId) {
-        return Array.isArray(globalSoporteAllowed)
-          ? globalSoporteAllowed.includes(normalizeId)
-          : DEFAULT_ROLE_PERMISSIONS.soporte.includes(normalizeId);
+      if (effectiveCollegeId && collegeRolePermissions[effectiveCollegeId]?.soporte) {
+        return collegeRolePermissions[effectiveCollegeId].soporte.includes(normalizeId);
       }
 
       return true;
     }
 
     if (rol === 'superusuario') {
-      // In Global Panel (no college selected), superusuario always has access to all global modules
-      if (!effectiveCollegeId) return true;
-
-      // Inside a college, if a module was disabled for ALL profiles in Global Mode or in this college, hide it in the college sidebar too
-      const nonSuperRoles = Object.keys(rolePermissions || {}).filter(
-        (r) => r !== 'superusuario' && r !== 'soporte'
-      ) as UserRole[];
-      const enabledInGlobal = nonSuperRoles.some((r) =>
-        (rolePermissions[r] || []).includes(normalizeId)
-      );
-      if (!enabledInGlobal) return false;
-
-      if (collegeRolePermissions[effectiveCollegeId]) {
-        const colMap = collegeRolePermissions[effectiveCollegeId];
-        const enabledInCol = nonSuperRoles.some((r) =>
-          (colMap[r] || []).includes(normalizeId)
-        );
-        if (!enabledInCol) return false;
-      }
+      // Superusuario has unrestricted access to all modules in global view and college view
       return true;
     }
 
-    // Enforce strict role separation for the 4 summary modules (cannot be accessed by a different profile)
-    const rolLower = String(rol).toLowerCase();
-    const isAdminOrControlEscolar =
-      rol === 'administrador' ||
-      rol === 'supervisor' ||
-      rol === 'prefecto' ||
-      rolLower.includes('control_escolar') ||
-      rolLower.includes('control escolar');
+    // Helper to check if a list of allowed IDs contains the normalized ID (with alias resolution)
+    const checkAllowedInList = (list: string[]): boolean => {
+      if (!Array.isArray(list)) return false;
+      if (list.includes(normalizeId)) return true;
 
-    if (normalizeId === 'colegio_resumen' && !isAdminOrControlEscolar) {
-      return false;
-    }
-    if (normalizeId === 'resumen_escolar' && rol !== 'directivo' && rol !== 'coordinador') {
-      return false;
-    }
-    if (normalizeId === 'resumen_psicologico' && rol !== 'psicologo') {
-      return false;
-    }
-    if (normalizeId === 'resumen_docentes' && rol !== 'docente') {
-      return false;
-    }
-    if (
-      rol === 'docente' &&
-      (normalizeId === 'estudiantes' ||
-        normalizeId === 'control_escolar' ||
-        normalizeId === 'materias')
-    ) {
-      return false;
-    }
+      // Tutor / Alumno module aliases
+      if (normalizeId === 'mis_comunicados' && list.includes('comunicados')) return true;
+      if (normalizeId === 'comunicados' && list.includes('mis_comunicados')) return true;
+      if (normalizeId === 'mi_cafeteria' && list.includes('cafeteria')) return true;
+      if (normalizeId === 'cafeteria' && list.includes('mi_cafeteria')) return true;
+      if (normalizeId === 'mis_tareas' && list.includes('tareas_examenes')) return true;
+      if (normalizeId === 'tareas_examenes' && list.includes('mis_tareas')) return true;
+      if (normalizeId === 'mi_biblioteca' && list.includes('biblioteca')) return true;
+      if (normalizeId === 'biblioteca' && list.includes('mi_biblioteca')) return true;
+      if (normalizeId === 'tutor_historial' && list.includes('calificaciones')) return true;
+      if (normalizeId === 'tutor_alumnos' && list.includes('estudiantes')) return true;
 
-    // 1. Check Global Permissions first: if disabled in Global Mode, it is disabled in ALL colleges!
-    const globalAllowed = rolePermissions?.[rol];
-    if (Array.isArray(globalAllowed)) {
-      if (rol === 'tutor' && (normalizeId === 'mis_comunicados' || normalizeId === 'comunicados')) {
-        if (!globalAllowed.includes('mis_comunicados') && !globalAllowed.includes('comunicados')) {
-          return false;
-        }
-      } else if (rol === 'tutor' && (normalizeId === 'mi_cafeteria' || normalizeId === 'cafeteria')) {
-        if (!globalAllowed.includes('mi_cafeteria') && !globalAllowed.includes('cafeteria')) {
-          return false;
-        }
-      } else if (!globalAllowed.includes(normalizeId)) {
-        return false;
+      return false;
+    };
+
+    // If inside a college, check college permissions if present
+    if (effectiveCollegeId && collegeRolePermissions[effectiveCollegeId]?.[rol]) {
+      const colAllowed = collegeRolePermissions[effectiveCollegeId][rol];
+      if (Array.isArray(colAllowed)) {
+        return checkAllowedInList(colAllowed);
       }
     }
 
-    // 2. Check college-specific permissions if inside a college
-    const permsMap =
-      effectiveCollegeId && collegeRolePermissions[effectiveCollegeId]
-        ? collegeRolePermissions[effectiveCollegeId]
-        : rolePermissions;
-
-    const allowed = permsMap?.[rol];
-    if (!Array.isArray(allowed)) {
-      if (rol === 'tutor' && (normalizeId === 'mis_comunicados' || normalizeId === 'comunicados')) {
-        return (
-          DEFAULT_ROLE_PERMISSIONS.tutor?.includes('mis_comunicados') ||
-          DEFAULT_ROLE_PERMISSIONS.tutor?.includes('comunicados') ||
-          false
-        );
-      }
-      if (rol === 'tutor' && (normalizeId === 'mi_cafeteria' || normalizeId === 'cafeteria')) {
-        return (
-          DEFAULT_ROLE_PERMISSIONS.tutor?.includes('mi_cafeteria') ||
-          DEFAULT_ROLE_PERMISSIONS.tutor?.includes('cafeteria') ||
-          false
-        );
-      }
-      return DEFAULT_ROLE_PERMISSIONS[rol]?.includes(normalizeId) ?? false;
-    }
-    if (rol === 'tutor' && (normalizeId === 'mis_comunicados' || normalizeId === 'comunicados')) {
-      return allowed.includes('mis_comunicados') || allowed.includes('comunicados');
-    }
-    if (rol === 'tutor' && (normalizeId === 'mi_cafeteria' || normalizeId === 'cafeteria')) {
-      return allowed.includes('mi_cafeteria') || allowed.includes('cafeteria');
-    }
-    return allowed.includes(normalizeId);
+    // Otherwise check global role permissions
+    const globalAllowed = rolePermissions?.[rol] || DEFAULT_ROLE_PERMISSIONS[rol] || [];
+    return checkAllowedInList(globalAllowed);
   };
 
   // Sync to local storage

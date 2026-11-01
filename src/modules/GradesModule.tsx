@@ -25,6 +25,7 @@ import { ReportCardDesignStudio } from '../components/ReportCardDesignStudio';
 import {
   generateReportCardsPdf,
   getGradePeriodsForModalidad,
+  getBaseMonthlyGrades,
   getEffectiveGradesForStudent,
   resolveStudentEffectiveLevel,
 } from '../utils/reportCardPdfGenerator';
@@ -66,11 +67,25 @@ export const GradesModule: React.FC<GradesModuleProps> = ({ onNavigateTab }) => 
 
   const selectedCycleObj = collegeCycles.find((c) => c.id === selectedCycleId) || activeCycle;
 
-  const activePeriodicity: EvaluationPeriodicity =
-    activeCollege.periodicidadEvaluacion || 'bimestral';
+  const [selectedPeriodicityView, setSelectedPeriodicityView] = useState<EvaluationPeriodicity>(
+    () => activeCollege.periodicidadEvaluacion || 'bimestral'
+  );
+
+  React.useEffect(() => {
+    if (activeCollege.periodicidadEvaluacion) {
+      setSelectedPeriodicityView(activeCollege.periodicidadEvaluacion);
+    }
+  }, [activeCollege.periodicidadEvaluacion]);
+
+  const activePeriodicity: EvaluationPeriodicity = selectedPeriodicityView;
   const meta =
     EVALUATION_PERIODICITY_CONFIG[activePeriodicity] ||
     EVALUATION_PERIODICITY_CONFIG.bimestral;
+
+  const handleSelectPeriodicity = (per: EvaluationPeriodicity) => {
+    setSelectedPeriodicityView(per);
+    setCollegeEvaluationPeriodicity(activeCollege.id, per);
+  };
 
   const primaryColor = activeCollege.colores.primario || '#0B2545';
   const goldColor = activeCollege.colores.secundario || '#C59B27';
@@ -406,6 +421,89 @@ export const GradesModule: React.FC<GradesModuleProps> = ({ onNavigateTab }) => 
             ).toFixed(1)
           )
         : 0;
+
+    // Helper local para promediar notas no vacías
+    const calcAvg = (vals: (number | undefined | null)[]) => {
+      const valid = vals.map((v) => Number(v) || 0).filter((v) => v > 0);
+      return valid.length > 0
+        ? Number((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1))
+        : 0;
+    };
+
+    // Actualizar los 10 meses base según la modalidad editada por el docente
+    const currentMonths = getBaseMonthlyGrades(g);
+    let nextMonths = [...currentMonths];
+
+    if (activePeriodicity === 'mensual') {
+      nextMonths = cleanArr.slice(0, 10);
+      while (nextMonths.length < 10) nextMonths.push(0);
+    } else if (activePeriodicity === 'bimestral') {
+      // 5 bimestres: cada bimestre actualiza sus 2 meses correspondientes
+      for (let b = 0; b < 5; b++) {
+        const val = cleanArr[b] ?? 0;
+        nextMonths[2 * b] = val;
+        nextMonths[2 * b + 1] = val;
+      }
+    } else if (activePeriodicity === 'trimestral') {
+      // 3 trimestres: Sep-Nov, Dic-Feb, Mar-Jun
+      const t1 = cleanArr[0] ?? 0;
+      const t2 = cleanArr[1] ?? 0;
+      const t3 = cleanArr[2] ?? 0;
+      nextMonths[0] = t1; nextMonths[1] = t1; nextMonths[2] = t1;
+      nextMonths[3] = t2; nextMonths[4] = t2; nextMonths[5] = t2;
+      nextMonths[6] = t3; nextMonths[7] = t3; nextMonths[8] = t3; nextMonths[9] = t3;
+    } else if (activePeriodicity === 'cuatrimestral') {
+      // 3 cuatrimestres: 4, 4, 2
+      const c1 = cleanArr[0] ?? 0;
+      const c2 = cleanArr[1] ?? 0;
+      const c3 = cleanArr[2] ?? 0;
+      nextMonths[0] = c1; nextMonths[1] = c1; nextMonths[2] = c1; nextMonths[3] = c1;
+      nextMonths[4] = c2; nextMonths[5] = c2; nextMonths[6] = c2; nextMonths[7] = c2;
+      nextMonths[8] = c3; nextMonths[9] = c3;
+    } else if (activePeriodicity === 'semestral') {
+      // 2 semestres: 5, 5
+      const s1 = cleanArr[0] ?? 0;
+      const s2 = cleanArr[1] ?? 0;
+      for (let i = 0; i < 5; i++) nextMonths[i] = s1;
+      for (let i = 5; i < 10; i++) nextMonths[i] = s2;
+    }
+
+    // Modalidades calculadas agrupando y promediando los meses
+    const bimestralComputed = [
+      calcAvg([nextMonths[0], nextMonths[1]]), // Bim 1 (Sep-Oct)
+      calcAvg([nextMonths[2], nextMonths[3]]), // Bim 2 (Nov-Dic)
+      calcAvg([nextMonths[4], nextMonths[5]]), // Bim 3 (Ene-Feb)
+      calcAvg([nextMonths[6], nextMonths[7]]), // Bim 4 (Mar-Abr)
+      calcAvg([nextMonths[8], nextMonths[9]]), // Bim 5 (May-Jun)
+    ];
+
+    const trimestralComputed = [
+      calcAvg([nextMonths[0], nextMonths[1], nextMonths[2]]), // Trim 1 (Sep-Nov)
+      calcAvg([nextMonths[3], nextMonths[4], nextMonths[5]]), // Trim 2 (Dic-Feb)
+      calcAvg([nextMonths[6], nextMonths[7], nextMonths[8], nextMonths[9]]), // Trim 3 (Mar-Jun)
+    ];
+
+    const cuatrimestralComputed = [
+      calcAvg([nextMonths[0], nextMonths[1], nextMonths[2], nextMonths[3]]), // Cuat 1 (Sep-Dic)
+      calcAvg([nextMonths[4], nextMonths[5], nextMonths[6], nextMonths[7]]), // Cuat 2 (Ene-Abr)
+      calcAvg([nextMonths[8], nextMonths[9]]), // Cuat 3 (May-Jun)
+    ];
+
+    const semestralComputed = [
+      calcAvg([nextMonths[0], nextMonths[1], nextMonths[2], nextMonths[3], nextMonths[4]]), // Sem 1 (Sep-Ene)
+      calcAvg([nextMonths[5], nextMonths[6], nextMonths[7], nextMonths[8], nextMonths[9]]), // Sem 2 (Feb-Jun)
+    ];
+
+    const synchronizedModalidades = {
+      ...(g.periodosPorModalidad || {}),
+      mensual: nextMonths,
+      bimestral: bimestralComputed,
+      trimestral: trimestralComputed,
+      cuatrimestral: cuatrimestralComputed,
+      semestral: semestralComputed,
+      [activePeriodicity]: cleanArr,
+    };
+
     if (String(g.id).startsWith('virtual-grd-')) {
       addGrade({
         colegioId: g.colegioId,
@@ -413,28 +511,23 @@ export const GradesModule: React.FC<GradesModuleProps> = ({ onNavigateTab }) => 
         estudianteId: g.estudianteId,
         materiaId: g.materiaId,
         materiaNombre: g.materiaNombre,
-        periodo1: cleanArr[0] ?? 0,
-        periodo2: cleanArr[1] ?? 0,
-        periodo3: cleanArr[2] ?? 0,
-        periodo4: cleanArr[3] ?? 0,
-        periodo5: cleanArr[4] ?? 0,
+        periodo1: bimestralComputed[0] || cleanArr[0] || 0,
+        periodo2: bimestralComputed[1] || cleanArr[1] || 0,
+        periodo3: bimestralComputed[2] || cleanArr[2] || 0,
+        periodo4: bimestralComputed[3] || cleanArr[3] || 0,
+        periodo5: bimestralComputed[4] || cleanArr[4] || 0,
         promedioFinal: finalAvg,
         observaciones: finalAvg >= 6 ? 'Desempeño adecuado' : 'Requiere apoyo académico',
-        periodosPorModalidad: {
-          [activePeriodicity]: cleanArr,
-        },
+        periodosPorModalidad: synchronizedModalidades,
       });
     } else {
       updateGrade(g.id, {
         cicloId: g.cicloId || selectedCycleId,
-        periodo1: cleanArr[0] ?? g.periodo1,
-        periodo2: cleanArr[1] ?? g.periodo2,
-        periodo3: cleanArr[2] ?? g.periodo3,
+        periodo1: bimestralComputed[0] || cleanArr[0] || g.periodo1,
+        periodo2: bimestralComputed[1] || cleanArr[1] || g.periodo2,
+        periodo3: bimestralComputed[2] || cleanArr[2] || g.periodo3,
         promedioFinal: finalAvg,
-        periodosPorModalidad: {
-          ...(g.periodosPorModalidad || {}),
-          [activePeriodicity]: cleanArr,
-        },
+        periodosPorModalidad: synchronizedModalidades,
       });
     }
     setEditingGradeId(null);
@@ -686,7 +779,7 @@ export const GradesModule: React.FC<GradesModuleProps> = ({ onNavigateTab }) => 
               <button
                 key={per}
                 type="button"
-                onClick={() => setCollegeEvaluationPeriodicity(activeCollege.id, per)}
+                onClick={() => handleSelectPeriodicity(per)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   isSelected
                     ? 'text-white shadow-2xs'
@@ -721,6 +814,23 @@ export const GradesModule: React.FC<GradesModuleProps> = ({ onNavigateTab }) => 
               : `Descargar Boletas ${meta.label} del Colegio (${collegeStudents.length}) .PDF`}
           </span>
         </button>
+      </div>
+
+      {/* Info indicator for active grouping and averaging */}
+      <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2 rounded-xl text-xs flex items-center justify-between gap-2 shadow-2xs">
+        <div className="flex items-center gap-2 font-medium">
+          <span className="font-bold text-amber-800">Modo de Evaluación Activo:</span>
+          <span>
+            {activePeriodicity === 'mensual' && 'Mensual · Mostrando calificaciones de cada mes individual (Sep a Jun).'}
+            {activePeriodicity === 'bimestral' && 'Bimestral · Agrupando de 2 en 2 meses y promediando calificaciones (5 bimestres).'}
+            {activePeriodicity === 'trimestral' && 'Trimestral · Agrupando de 3 en 3 meses y promediando calificaciones (3 trimestres).'}
+            {activePeriodicity === 'cuatrimestral' && 'Cuatrimestral · Agrupando de 4 en 4 meses y promediando calificaciones (3 cuatrimestres).'}
+            {activePeriodicity === 'semestral' && 'Semestral · Agrupando por semestre y promediando calificaciones (2 semestres).'}
+          </span>
+        </div>
+        <span className="text-[11px] text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded font-mono font-semibold">
+          {meta.shortLabels.join(' | ')}
+        </span>
       </div>
 
       {/* Search & Group Filter Bar + PDF Download Selector */}
